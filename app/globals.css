@@ -1,26 +1,97 @@
 @import "tailwindcss";
 
+/* -----------------------------------
+   Custom variant
+----------------------------------- */
+@custom-variant dark (&:is(.dark *));
+
+/* -----------------------------------
+   DESIGN TOKENS
+----------------------------------- */
 @theme {
-  /* Primary Brand Colors */
+  /* Brand */
   --color-brand-primary: #2596be;
   --color-brand-primary-hover: #1f7fa1;
 
-  /* Surface Colors */
+  /* Surfaces */
   --color-surface-sidebar: #1e293b;
   --color-surface-canvas: #f8fafc;
   --color-surface-card: #ffffff;
 
-  /* Text Colors */
+  /* Text */
   --color-text-primary: #0f172a;
   --color-text-secondary: #475569;
   --color-text-muted: #94a3b8;
 
-  /* Border Colors */
+  /* Border */
   --color-border: #e2e8f0;
+
+  /* Fonts */
+  --font-family-body: var(--font-body);
+  --font-family-heading: var(--font-heading);
+  --font-family-sidebar: var(--font-sidebar);
 }
 
-body {
-  background: var(--color-surface-canvas);
-  color: var(--color-text-primary);
-  font-family: Arial, Helvetica, sans-serif;
+/* -----------------------------------
+   SHADCN + TAILWIND v4 BRIDGE
+----------------------------------- */
+@theme inline {
+  --background: var(--color-surface-canvas);
+  --foreground: var(--color-text-primary);
+
+  --card: var(--color-surface-card);
+  --card-foreground: var(--color-text-primary);
+
+  --popover: var(--color-surface-card);
+  --popover-foreground: var(--color-text-primary);
+
+  --primary: var(--color-brand-primary);
+  --primary-foreground: #ffffff;
+
+  --muted: var(--color-surface-canvas);
+  --muted-foreground: var(--color-text-muted);
+
+  --accent: var(--color-brand-primary-hover);
+  --accent-foreground: #ffffff;
+
+  --border: var(--color-border);
+  --input: var(--color-border);
+  --ring: var(--color-brand-primary);
+
+  /* Sidebar (shadcn reads THESE) */
+  --sidebar: var(--color-surface-sidebar);
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: var(--color-brand-primary);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--color-brand-primary-hover);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: var(--color-brand-primary);
+}
+
+/* -----------------------------------
+   BASE STYLES (NO @apply TOKENS)
+----------------------------------- */
+@layer base {
+  body {
+    background: var(--background);
+    color: var(--foreground);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading), sans-serif;
+  }
+
+  .header-bar,
+  .header-bar * {
+    font-family: var(--font-heading), sans-serif !important;
+  }
+
+  [data-sidebar] * {
+    font-family: var(--font-sidebar), sans-serif !important;
+  }
+
+  * {
+    border-color: var(--border);
+  }
 }

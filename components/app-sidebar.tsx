@@ -1,0 +1,240 @@
+"use client"
+
+import * as React from "react"
+import Link from "next/link"
+import {
+LayoutDashboard,
+FileText,
+Award,
+Settings,
+CreditCard,
+User,
+LogOut,
+GraduationCap,
+Video,
+Briefcase,
+ChevronRight,
+ChevronDown,
+ChevronUp,
+FilePlus,
+} from "lucide-react"
+import { usePathname } from "next/navigation"
+
+import {
+Sidebar,
+SidebarContent,
+SidebarFooter,
+SidebarGroup,
+SidebarGroupContent,
+SidebarHeader,
+SidebarMenu,
+SidebarMenuButton,
+SidebarMenuItem,
+SidebarMenuSub,
+SidebarMenuSubButton,
+SidebarMenuSubItem,
+} from "@/components/ui/sidebar"
+import {
+DropdownMenu,
+DropdownMenuContent,
+DropdownMenuItem,
+DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+
+const menuItems = [
+{
+title: "Dashboard",
+icon: LayoutDashboard,
+url: "/",
+},
+{
+title: "Base Template",
+icon: FileText,
+url: "/templates",
+},
+{
+title: "Generate Certificate",
+icon: FilePlus,
+items: [
+    { title: "Course", icon: GraduationCap, url: "/generate/course" },
+    { title: "Webinar", icon: Video, url: "/generate/webinar" },
+    { title: "Workshop", icon: Briefcase, url: "/generate/workshop" },
+],
+},
+{
+title: "Issued Certificates",
+icon: Award,
+url: "/certificates",
+},
+{
+title: "Settings",
+icon: Settings,
+url: "/settings",
+},
+{
+title: "Billing",
+icon: CreditCard,
+url: "/billing",
+},
+]
+
+export function AppSidebar() {
+const pathname = usePathname()
+const [isProfileOpen, setIsProfileOpen] = React.useState(false)
+
+// Check if we're currently on a submenu page to determine initial state
+const getInitialOpenSubmenu = () => {
+  const activeMenuItem = menuItems.find((item) =>
+    item.items?.some((subItem) => pathname === subItem.url)
+  )
+  return activeMenuItem ? activeMenuItem.title : null
+}
+
+const [openSubmenu, setOpenSubmenu] = React.useState<string | null>(getInitialOpenSubmenu)
+
+// Update open submenu when pathname changes
+React.useEffect(() => {
+  const activeMenuItem = menuItems.find((item) =>
+    item.items?.some((subItem) => pathname === subItem.url)
+  )
+  if (activeMenuItem) {
+    setOpenSubmenu(activeMenuItem.title)
+  } else {
+    setOpenSubmenu(null)
+  }
+}, [pathname])
+
+return (
+<Sidebar className="border-r border-white/10 bg-surface-sidebar **:font-heading md:border-border !bg-[#1E293B]">
+    <SidebarHeader className="border-b border-white/10 p-3 md:p-4">
+    <div className="flex items-center gap-2">
+        <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-lg bg-brand-primary">
+        <Award className="h-5 w-5 md:h-6 md:w-6 text-white" />
+        </div>
+        <div>
+        <h2 className="text-lg md:text-xl font-bold text-white">CertGen</h2>
+        <p className="text-xs md:text-sm text-white/60">Certificate Generator</p>
+        </div>
+    </div>
+    </SidebarHeader>
+
+    <SidebarContent className="px-2 py-3 md:py-4 bg-surface-sidebar">
+    <SidebarGroup>
+        <SidebarGroupContent>
+        <SidebarMenu className="gap-3 md:gap-4">
+            {menuItems.map((item) => {
+            const isActive = pathname === item.url
+            const hasSubmenu = item.items && item.items.length > 0
+
+            if (hasSubmenu) {
+                const isSubmenuOpen = openSubmenu === item.title
+
+                return (
+                <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                    onClick={() =>
+                        setOpenSubmenu(isSubmenuOpen ? null : item.title)
+                    }
+                    className="text-[15px] md:text-[17px] text-white/80 hover:scale-[1.02] transition-transform"
+                    >
+                    <item.icon className="h-4 w-4 md:h-5 md:w-5" />
+                    <span>{item.title}</span>
+                    <ChevronRight
+                        className={`ml-auto h-3 w-3 md:h-4 md:w-4 transition-transform ${
+                        isSubmenuOpen ? "rotate-90" : ""
+                        }`}
+                    />
+                    </SidebarMenuButton>
+                    <div 
+                      className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                        isSubmenuOpen ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
+                      }`}
+                    >
+                    <SidebarMenuSub className="gap-2 md:gap-3 mt-1 md:mt-2">
+                        {item.items?.map((subItem) => {
+                        const isSubActive = pathname === subItem.url
+                        return (
+                            <SidebarMenuSubItem key={subItem.title}>
+                            <SidebarMenuSubButton
+                                asChild
+                                className={`text-[14px] md:text-[16px] text-white/70 hover:scale-[1.02] transition-transform ${
+                                isSubActive
+                                    ? "bg-brand-primary text-white"
+                                    : ""
+                                }`}
+                            >
+                                <Link href={subItem.url}>
+                                <subItem.icon className="h-3 w-3 md:h-4 md:w-4" />
+                                <span>{subItem.title}</span>
+                                </Link>
+                            </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                        )
+                        })}
+                    </SidebarMenuSub>
+                    </div>
+                </SidebarMenuItem>
+                )
+            }
+
+            return (
+                <SidebarMenuItem key={item.title}>
+                <SidebarMenuButton
+                    asChild
+                    className={`text-[15px] md:text-[17px] text-white/80 hover:scale-[1.02] transition-transform ${
+                    isActive ? "bg-brand-primary text-white" : ""
+                    }`}
+                >
+                    <Link href={item.url || "/"}>
+                    <item.icon className="h-4 w-4 md:h-5 md:w-5" />
+                    <span>{item.title}</span>
+                    </Link>
+                </SidebarMenuButton>
+                </SidebarMenuItem>
+            )
+            })}
+        </SidebarMenu>
+        </SidebarGroupContent>
+    </SidebarGroup>
+    </SidebarContent>
+
+    <SidebarFooter className="border-t border-white/10 p-1.5 md:p-2 bg-surface-sidebar">
+    <SidebarMenu>
+        <SidebarMenuItem>
+        <DropdownMenu onOpenChange={setIsProfileOpen}>
+            <DropdownMenuTrigger asChild>
+            <SidebarMenuButton className="text-white/80 hover:scale-[1.02] transition-transform">
+                <div className="flex h-7 w-7 md:h-8 md:w-8 items-center justify-center rounded-full bg-brand-primary">
+                <User className="h-3 w-3 md:h-4 md:w-4 text-white" />
+                </div>
+                <div className="flex flex-col items-start">
+                <span className="text-xs md:text-sm font-medium text-white">John Doe</span>
+                <span className="text-[10px] md:text-xs text-white/60">Admin</span>
+                </div>
+                {isProfileOpen ? (
+                  <ChevronUp className="ml-auto h-3 w-3 md:h-4 md:w-4 transition-transform" />
+                ) : (
+                  <ChevronRight className="ml-auto h-3 w-3 md:h-4 md:w-4 transition-transform" />
+                )}
+            </SidebarMenuButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+            side="top"
+            className="w-48 md:w-56 bg-surface-sidebar border-2 border-white/20 shadow-2xl text-white"
+            >
+            <DropdownMenuItem className="cursor-pointer hover:bg-brand-primary-hover focus:bg-brand-primary-hover text-white text-sm">
+                <User className="mr-2 h-3 w-3 md:h-4 md:w-4" />
+                <span>Account</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem className="cursor-pointer text-red-400 hover:bg-red-900/20 hover:text-red-300 focus:bg-red-900/20 focus:text-red-300 text-sm">
+                <LogOut className="mr-2 h-3 w-3 md:h-4 md:w-4" />
+                <span>Logout</span>
+            </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+        </SidebarMenuItem>
+    </SidebarMenu>
+    </SidebarFooter>
+</Sidebar>
+)
+}

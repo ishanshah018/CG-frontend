@@ -8,7 +8,7 @@ const pathname = usePathname()
 
 // Map paths to readable names
 const pathMap: Record<string, string> = {
-"": "Dashboard",
+"dashboard": "Dashboard",
 "templates": "Base Template",
 "generate": "Generate Certificate",
 "course": "Course",

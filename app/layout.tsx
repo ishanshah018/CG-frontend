@@ -1,6 +1,6 @@
 import "./globals.css"
 import { Alegreya_Sans, Inter, Source_Sans_3 } from "next/font/google"
-import { ConditionalLayout } from "@/components/conditional-layout"
+import { Toaster } from "sonner"
 
 const alegreyaSans = Alegreya_Sans({
   subsets: ["latin"],
@@ -27,7 +27,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.className} ${alegreyaSans.variable} ${sourceSansPro.variable} antialiased`}>
-        <ConditionalLayout>{children}</ConditionalLayout>
+        {children}
+        <Toaster position="top-center" />
       </body>
     </html>
   )

@@ -1,4 +1,6 @@
 import "./globals.css"
+import { Analytics } from "@vercel/analytics/react"
+
 import { Alegreya_Sans, Inter, Source_Sans_3 } from "next/font/google"
 import { Toaster } from "sonner"
 
@@ -29,6 +31,7 @@ export default function RootLayout({
       <body className={`${inter.className} ${alegreyaSans.variable} ${sourceSansPro.variable} antialiased`}>
         {children}
         <Toaster position="top-center" />
+        <Analytics />
       </body>
     </html>
   )

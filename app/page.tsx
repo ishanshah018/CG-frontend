@@ -1,9 +1,5 @@
+import { redirect } from "next/navigation"
+
 export default function Home() {
-  return (
-    <div className="flex items-center justify-center min-h-[60vh]">
-      <h1 className="text-4xl font-bold text-primary">
-        You are in Dashboard page
-      </h1>
-    </div>
-  );
+  redirect("/login")
 }

@@ -14,7 +14,6 @@ GraduationCap,
 Video,
 Briefcase,
 ChevronRight,
-ChevronDown,
 ChevronUp,
 FilePlus,
 } from "lucide-react"
@@ -33,6 +32,7 @@ SidebarMenuItem,
 SidebarMenuSub,
 SidebarMenuSubButton,
 SidebarMenuSubItem,
+useSidebar,
 } from "@/components/ui/sidebar"
 import {
 DropdownMenu,
@@ -80,7 +80,14 @@ url: "/billing",
 
 export function AppSidebar() {
 const pathname = usePathname()
+const { isMobile, setOpenMobile } = useSidebar()
 const [isProfileOpen, setIsProfileOpen] = React.useState(false)
+
+const handleMobileClick = () => {
+  if (isMobile) {
+    setTimeout(() => setOpenMobile(false), 150)
+  }
+}
 
 // Check if we're currently on a submenu page to determine initial state
 const getInitialOpenSubmenu = () => {
@@ -105,7 +112,7 @@ React.useEffect(() => {
 }, [pathname])
 
 return (
-<Sidebar className="border-r border-white/10 bg-surface-sidebar **:font-heading md:border-border !bg-[#1E293B]">
+<Sidebar className="border-r border-white/10 bg-surface-sidebar **:font-heading md:border-border">
     <SidebarHeader className="border-b border-white/10 p-3 md:p-4">
     <div className="flex items-center gap-2">
         <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-lg bg-brand-primary">
@@ -135,10 +142,10 @@ return (
                     onClick={() =>
                         setOpenSubmenu(isSubmenuOpen ? null : item.title)
                     }
-                    className="text-[15px] md:text-[17px] text-white/80 hover:scale-[1.02] transition-transform"
+                    className="h-12.5 text-base font-medium tracking-[0.3px] leading-none text-white/80 hover:scale-[1.02] transition-transform rounded-md"
                     >
                     <item.icon className="h-4 w-4 md:h-5 md:w-5" />
-                    <span>{item.title}</span>
+                    <span className="whitespace-nowrap">{item.title}</span>
                     <ChevronRight
                         className={`ml-auto h-3 w-3 md:h-4 md:w-4 transition-transform ${
                         isSubmenuOpen ? "rotate-90" : ""
@@ -147,7 +154,7 @@ return (
                     </SidebarMenuButton>
                     <div 
                       className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                        isSubmenuOpen ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
+                        isSubmenuOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
                       }`}
                     >
                     <SidebarMenuSub className="gap-2 md:gap-3 mt-1 md:mt-2">
@@ -157,13 +164,13 @@ return (
                             <SidebarMenuSubItem key={subItem.title}>
                             <SidebarMenuSubButton
                                 asChild
-                                className={`text-[14px] md:text-[16px] text-white/70 hover:scale-[1.02] transition-transform ${
+                                className={`h-12.5 text-base font-medium tracking-[0.3px] leading-none text-white/70 hover:scale-[1.02] transition-transform rounded-md ${
                                 isSubActive
                                     ? "bg-brand-primary text-white"
                                     : ""
                                 }`}
                             >
-                                <Link href={subItem.url}>
+                                <Link href={subItem.url} onClick={handleMobileClick}>
                                 <subItem.icon className="h-3 w-3 md:h-4 md:w-4" />
                                 <span>{subItem.title}</span>
                                 </Link>
@@ -181,11 +188,11 @@ return (
                 <SidebarMenuItem key={item.title}>
                 <SidebarMenuButton
                     asChild
-                    className={`text-[15px] md:text-[17px] text-white/80 hover:scale-[1.02] transition-transform ${
+                    className={`h-12.5 text-base font-medium tracking-[0.3px] leading-none text-white/80 hover:scale-[1.02] transition-transform rounded-md ${
                     isActive ? "bg-brand-primary text-white" : ""
                     }`}
                 >
-                    <Link href={item.url || "/"}>
+                    <Link href={item.url || "/"} onClick={handleMobileClick}>
                     <item.icon className="h-4 w-4 md:h-5 md:w-5" />
                     <span>{item.title}</span>
                     </Link>

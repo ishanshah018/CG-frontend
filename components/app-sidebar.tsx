@@ -83,7 +83,7 @@ export function AppSidebar() {
 const pathname = usePathname()
 const { isMobile, setOpenMobile } = useSidebar()
 const [isProfileOpen, setIsProfileOpen] = React.useState(false)
-const { logout } = useAuth()
+const { logout, user } = useAuth()
 
 const handleMobileClick = () => {
   if (isMobile) {
@@ -217,8 +217,12 @@ return (
                 <User className="h-3 w-3 md:h-4 md:w-4 text-white" />
                 </div>
                 <div className="flex flex-col items-start">
-                <span className="text-xs md:text-sm font-medium text-white">John Doe</span>
-                <span className="text-[10px] md:text-xs text-white/60">Admin</span>
+                <span className="text-xs md:text-sm font-medium text-white">
+                  {user?.email?.split('@')[0] || 'User'}
+                </span>
+                <span className="text-[10px] md:text-xs text-white/60">
+                  {user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'User'}
+                </span>
                 </div>
                 {isProfileOpen ? (
                   <ChevronUp className="ml-auto h-3 w-3 md:h-4 md:w-4 transition-transform" />

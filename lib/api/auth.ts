@@ -11,6 +11,18 @@ export interface LoginCredentials {
   password: string;
 }
 
+export interface SignupCredentials {
+  organization_name: string;
+  email: string;
+  password: string;
+}
+
+export interface SignupCredentials {
+  organization_name: string;
+  email: string;
+  password: string;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -35,6 +47,26 @@ export interface LoginResponse {
     user: User;
     organization: Organization;
     plan: Plan;
+  };
+}
+
+export interface SignupResponse {
+  success: boolean;
+  message: string;
+  data: {
+    organization_id: string;
+    organization_name: string;
+    owner_email: string;
+  };
+}
+
+export interface SignupResponse {
+  success: boolean;
+  message: string;
+  data: {
+    organization_id: string;
+    organization_name: string;
+    owner_email: string;
   };
 }
 
@@ -76,6 +108,33 @@ export async function loginUser(
 
   if (!response.ok) {
     throw new Error(data.message || "Login failed");
+  }
+
+  return data;
+}
+
+/**
+ * Signup API handler
+ * Creates new organization and admin account
+ */
+export async function signupUser(
+  credentials: SignupCredentials
+): Promise<SignupResponse> {
+  const response = await fetch(
+    `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.AUTH.SIGNUP}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(credentials),
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Signup failed");
   }
 
   return data;

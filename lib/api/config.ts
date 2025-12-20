@@ -8,6 +8,7 @@ export const API_CONFIG = {
   ENDPOINTS: {
     AUTH: {
       LOGIN: "/api/auth/login",
+      SIGNUP: "/api/auth/signup",
       LOGOUT: "/api/auth/logout",
       REGISTER: "/api/auth/register",
       ME: "/api/auth/me",

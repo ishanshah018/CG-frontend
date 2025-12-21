@@ -60,7 +60,7 @@ return (
     <div className="w-full max-w-130">
     {/* Heading */}
     <h1 className="text-[40px] font-bold text-text-primary text-center mb-10">
-        Log in
+        Log in to your account
     </h1>
 
     {/* Login Form */}
@@ -71,7 +71,7 @@ return (
             htmlFor="email"
             className="block text-sm text-text-secondary mb-2"
         >
-            Email address
+            Email
         </label>
         <input
             type="email"
@@ -142,7 +142,7 @@ return (
             href="#"
             className="text-sm text-brand-primary hover:underline"
         >
-            Forget your password
+            Forgot Password ?
         </Link>
         </div>
 
@@ -150,7 +150,8 @@ return (
         <button
         type="submit"
         disabled={isLoading}
-        className="w-full h-14 bg-brand-primary hover:bg-brand-primary-hover text-white font-semibold text-lg rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        className="w-full h-10 bg-brand-primary hover:bg-brand-primary-hover text-white font-semibold text-lg rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        style={{ fontFamily: 'var(--font-heading)' }}
         >
         {isLoading ? (
           <>
@@ -158,9 +159,22 @@ return (
             <span>Logging in...</span>
           </>
         ) : (
-          "Log in"
+          "Sign in"
         )}
         </button>
+
+        {/* New User Link */}
+        <div className="text-center">
+        <span className="text-sm text-text-secondary">
+            New User?{" "}
+        </span>
+        <Link
+            href="/signup"
+            className="text-sm text-primary hover:underline font-medium"
+        >
+            Create Account
+        </Link>
+        </div>
     </form>
     </div>
 </div>

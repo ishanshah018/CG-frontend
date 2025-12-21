@@ -13,8 +13,13 @@ export const API_CONFIG = {
       REGISTER: "/api/auth/register",
       ME: "/api/auth/me",
     },
+    CERTIFICATES: {
+      TEMPLATES: {
+        BASE: "/api/certificates/templates/base",
+        UPLOAD: "/api/certificates/templates/upload",
+      },
+    },
     // Add more endpoints as needed
-    CERTIFICATES: "/api/certificates",
     TEMPLATES: "/api/templates",
   },
 } as const;
@@ -27,4 +32,5 @@ export const STORAGE_KEYS = {
   USER: "user",
   ORGANIZATION: "organization",
   PLAN: "plan",
+  CERTIFICATE_ATTRIBUTES: "certificate_attributes",
 } as const;

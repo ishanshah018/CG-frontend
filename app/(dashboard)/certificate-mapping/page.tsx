@@ -1,9 +1,9 @@
 "use client"
 
 import { useAuth } from "@/lib/auth"
-import { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { getBaseCertificateTemplate, fetchCertificateAttributes } from "@/lib/api/certificates"
-import { Monitor, ChevronRight, User, BookOpen, Calendar, Video, UserCircle, Briefcase } from "lucide-react"
+import { Monitor, User, BookOpen, Calendar, Video, UserCircle, Briefcase } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import Loader from "@/components/loader"
 
@@ -11,46 +11,35 @@ import Loader from "@/components/loader"
 type CertificateType = "course" | "webinar" | "workshop"
 type MainTab = "default" | "custom"
 
-interface Position {
-  x: number
-  y: number
+interface StyleObject {
+  fontFamily: string
+  fontSize: number
+  color: string
 }
 
 interface TextBlock {
   text: string
   x: number
   y: number
+  style: StyleObject
+}
+
+interface AttributeBlock {
+  x: number
+  y: number
+  style: StyleObject
 }
 
 interface CertificateMapping {
   heading: TextBlock
+  heading2?: TextBlock
   descriptionTop: TextBlock
   descriptionBody: TextBlock
-  attributes: Record<string, Position>
-  attributesInDescription: string[] // Tracks which attributes are included in description
+  attributes: Record<string, AttributeBlock>
+  attributesInDescription: string[]
 }
 
 type MappingData = Record<CertificateType, CertificateMapping>
-
-interface TextStyle {
-  fontFamily: string
-  fontSize: number
-  color: string
-}
-
-interface TextStyles {
-  heading: TextStyle
-  heading2: { fontFamily: string; fontSize: number }
-  descriptionTop: TextStyle
-  studentName: TextStyle
-  descriptionBody: TextStyle
-  dateFields: { fontSize: number }
-  courseName: TextStyle
-  webinarName: TextStyle
-  workshopName: TextStyle
-}
-
-type AllTextStyles = Record<CertificateType, TextStyles>
 
 // Constants
 const DEFAULT_HEADINGS = {
@@ -69,7 +58,7 @@ const DESCRIPTION_BODY_TEMPLATES = {
 
 // Default positions for "Our Default Mapping" preview
 const getDefaultPositions = (type: CertificateType, attributes: string[]) => {
-  const positions: Record<string, Position> = {
+  const positions: Record<string, { x: number; y: number }> = {
     heading: { x: 50, y: 20 },
     heading2: { x: 50, y: 26 },
     descriptionTop: { x: 50, y: 30 },
@@ -114,7 +103,7 @@ const ATTRIBUTE_LABELS: Record<string, string> = {
 }
 
 // Attribute icon mapping
-const ATTRIBUTE_ICONS: Record<string, any> = {
+const ATTRIBUTE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   student_name: User,
   course_name: BookOpen,
   completion_date: Calendar,
@@ -127,17 +116,10 @@ const ATTRIBUTE_ICONS: Record<string, any> = {
 
 const STORAGE_KEY = "certificate_mapping"
 const ATTRIBUTES_STORAGE_KEY = "certificate_attributes"
-const TEXT_STYLES_STORAGE_KEY = "certificate_text_styles"
 
-// Font options for each text block
+// Font options (used in UI selects)
 const FONT_OPTIONS = {
   heading: [
-    "Playfair Display",
-    "Libre Baskerville",
-    "Cormorant Garamond",
-    "Merriweather",
-  ],
-  heading2: [
     "Playfair Display",
     "Libre Baskerville",
     "Cormorant Garamond",
@@ -161,74 +143,10 @@ const FONT_OPTIONS = {
     "Open Sans",
     "Source Sans 3",
   ],
-  courseName: [
-    "Playfair Display",
-    "Libre Baskerville",
-    "Cormorant Garamond",
-    "Merriweather",
-  ],
-  webinarName: [
-    "Playfair Display",
-    "Libre Baskerville",
-    "Cormorant Garamond",
-    "Merriweather",
-  ],
-  workshopName: [
-    "Playfair Display",
-    "Libre Baskerville",
-    "Cormorant Garamond",
-    "Merriweather",
-  ],
-}
-
-// Default text styles
-const DEFAULT_TEXT_STYLES: TextStyles = {
-  heading: {
-    fontFamily: "Playfair Display",
-    fontSize: 32,
-    color: "#1a1a1a",
-  },
-  heading2: {
-    fontFamily: "Playfair Display",
-    fontSize: 24,
-  },
-  descriptionTop: {
-    fontFamily: "Inter",
-    fontSize: 14,
-    color: "#4a5568",
-  },
-  studentName: {
-    fontFamily: "Great Vibes",
-    fontSize: 28,
-    color: "#1a1a1a",
-  },
-  descriptionBody: {
-    fontFamily: "Roboto",
-    fontSize: 14,
-    color: "#4a5568",
-  },
-  dateFields: {
-    fontSize: 16,
-  },
-  courseName: {
-    fontFamily: "Playfair Display",
-    fontSize: 18,
-    color: "#1a1a1a",
-  },
-  webinarName: {
-    fontFamily: "Playfair Display",
-    fontSize: 18,
-    color: "#1a1a1a",
-  },
-  workshopName: {
-    fontFamily: "Playfair Display",
-    fontSize: 18,
-    color: "#1a1a1a",
-  },
 }
 
 export default function CertificateMappingPage() {
-  const { user, organization, plan } = useAuth()
+  useAuth() // Required for authentication context
   const [isDesktop, setIsDesktop] = useState(true)
   const [mainTab, setMainTab] = useState<MainTab>("default")
   const [certificateType, setCertificateType] = useState<CertificateType>("course")
@@ -243,7 +161,6 @@ export default function CertificateMappingPage() {
     webinar: [],
     workshop: [],
   })
-  const [textStyles, setTextStyles] = useState<AllTextStyles | null>(null)
   const [showVerticalGuide, setShowVerticalGuide] = useState(false)
   const [showHorizontalGuide, setShowHorizontalGuide] = useState(false)
 
@@ -295,95 +212,41 @@ export default function CertificateMappingPage() {
     loadAttributes()
   }, [])
 
-  // Load text styles from sessionStorage
-  useEffect(() => {
-    const stored = sessionStorage.getItem(TEXT_STYLES_STORAGE_KEY)
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored)
-        // Migrate old data: ensure all fields exist, deeply merge each type
-        const migrated: AllTextStyles = {
-          course: {
-            ...DEFAULT_TEXT_STYLES,
-            ...(parsed.course || {}),
-            heading2: { ...DEFAULT_TEXT_STYLES.heading2, ...(parsed.course?.heading2 || {}) },
-            dateFields: { ...DEFAULT_TEXT_STYLES.dateFields, ...(parsed.course?.dateFields || {}) },
-            courseName: { ...DEFAULT_TEXT_STYLES.courseName, ...(parsed.course?.courseName || {}) },
-            webinarName: { ...DEFAULT_TEXT_STYLES.webinarName, ...(parsed.course?.webinarName || {}) },
-            workshopName: { ...DEFAULT_TEXT_STYLES.workshopName, ...(parsed.course?.workshopName || {}) },
-          },
-          webinar: {
-            ...DEFAULT_TEXT_STYLES,
-            ...(parsed.webinar || {}),
-            heading2: { ...DEFAULT_TEXT_STYLES.heading2, ...(parsed.webinar?.heading2 || {}) },
-            dateFields: { ...DEFAULT_TEXT_STYLES.dateFields, ...(parsed.webinar?.dateFields || {}) },
-            courseName: { ...DEFAULT_TEXT_STYLES.courseName, ...(parsed.webinar?.courseName || {}) },
-            webinarName: { ...DEFAULT_TEXT_STYLES.webinarName, ...(parsed.webinar?.webinarName || {}) },
-            workshopName: { ...DEFAULT_TEXT_STYLES.workshopName, ...(parsed.webinar?.workshopName || {}) },
-          },
-          workshop: {
-            ...DEFAULT_TEXT_STYLES,
-            ...(parsed.workshop || {}),
-            heading2: { ...DEFAULT_TEXT_STYLES.heading2, ...(parsed.workshop?.heading2 || {}) },
-            dateFields: { ...DEFAULT_TEXT_STYLES.dateFields, ...(parsed.workshop?.dateFields || {}) },
-            courseName: { ...DEFAULT_TEXT_STYLES.courseName, ...(parsed.workshop?.courseName || {}) },
-            webinarName: { ...DEFAULT_TEXT_STYLES.webinarName, ...(parsed.workshop?.webinarName || {}) },
-            workshopName: { ...DEFAULT_TEXT_STYLES.workshopName, ...(parsed.workshop?.workshopName || {}) },
-          },
-        }
-        setTextStyles(migrated)
-        sessionStorage.setItem(TEXT_STYLES_STORAGE_KEY, JSON.stringify(migrated))
-      } catch (error) {
-        console.error("Failed to parse text styles:", error)
-        initializeTextStyles()
-      }
-    } else {
-      initializeTextStyles()
-    }
-  }, [])
-
-  const initializeTextStyles = () => {
-    const initialStyles: AllTextStyles = {
-      course: { ...DEFAULT_TEXT_STYLES },
-      webinar: { ...DEFAULT_TEXT_STYLES },
-      workshop: { ...DEFAULT_TEXT_STYLES },
-    }
-    setTextStyles(initialStyles)
-    sessionStorage.setItem(TEXT_STYLES_STORAGE_KEY, JSON.stringify(initialStyles))
-  }
-
-  // Update text style
-  const updateTextStyle = (
-    block: keyof TextStyles,
-    property: string,
+  // Update style directly in mappingData
+  const updateStyle = (
+    blockType: "heading" | "descriptionTop" | "descriptionBody" | "attribute",
+    blockName: string,
+    property: "fontFamily" | "fontSize" | "color",
     value: string | number
   ) => {
-    if (!textStyles) return
-    const newStyles = JSON.parse(JSON.stringify(textStyles)) as AllTextStyles
+    if (!mappingData) return
+    const newData = JSON.parse(JSON.stringify(mappingData)) as MappingData
     
-    if (block === "dateFields") {
-      newStyles[certificateType].dateFields.fontSize = value as number
-    } else if (block === "heading2") {
-      // heading2 only has fontFamily and fontSize
-      if (property === "fontFamily") {
-        newStyles[certificateType].heading2.fontFamily = value as string
-      } else if (property === "fontSize") {
-        newStyles[certificateType].heading2.fontSize = value as number
+    if (blockType === "attribute") {
+      // Update attribute style
+      if (newData[certificateType].attributes[blockName]) {
+        if (property === "fontFamily") {
+          newData[certificateType].attributes[blockName].style.fontFamily = value as string
+        } else if (property === "fontSize") {
+          newData[certificateType].attributes[blockName].style.fontSize = value as number
+        } else if (property === "color") {
+          newData[certificateType].attributes[blockName].style.color = value as string
+        }
       }
     } else {
-      // Other blocks have full TextStyle (fontFamily, fontSize, color)
-      const styleBlock = newStyles[certificateType][block] as TextStyle
-      if (property === "fontFamily") {
-        styleBlock.fontFamily = value as string
-      } else if (property === "fontSize") {
-        styleBlock.fontSize = value as number
-      } else if (property === "color") {
-        styleBlock.color = value as string
+      // Update text block style
+      if (newData[certificateType][blockType]) {
+        if (property === "fontFamily") {
+          newData[certificateType][blockType].style.fontFamily = value as string
+        } else if (property === "fontSize") {
+          newData[certificateType][blockType].style.fontSize = value as number
+        } else if (property === "color") {
+          newData[certificateType][blockType].style.color = value as string
+        }
       }
     }
     
-    setTextStyles(newStyles)
-    sessionStorage.setItem(TEXT_STYLES_STORAGE_KEY, JSON.stringify(newStyles))
+    saveMappingData(newData)
   }
 
   // Load base certificate template
@@ -402,6 +265,34 @@ export default function CertificateMappingPage() {
     }
     loadTemplate()
   }, [])
+
+  // Helper to ensure text block has style
+  const ensureTextBlockStyle = (block: unknown, defaultStyle: StyleObject): TextBlock => {
+    if (!block || typeof block !== 'object') return { text: "", x: 50, y: 50, style: defaultStyle }
+    const b = block as Record<string, unknown>
+    return {
+      text: (b.text as string) || "",
+      x: (b.x as number) ?? 50,
+      y: (b.y as number) ?? 50,
+      style: (b.style as StyleObject) || defaultStyle
+    }
+  }
+
+  // Helper to ensure attribute has style
+  const ensureAttributeStyle = (attr: unknown, attrName: string): AttributeBlock => {
+    const isStudentName = attrName === 'student_name'
+    const defaultStyle = isStudentName
+      ? { fontFamily: "Great Vibes", fontSize: 28, color: "#111827" }
+      : { fontFamily: "Inter", fontSize: 14, color: "#111827" }
+    
+    if (!attr || typeof attr !== 'object') return { x: 50, y: 50, style: defaultStyle }
+    const a = attr as Record<string, unknown>
+    return {
+      x: (a.x as number) ?? 50,
+      y: (a.y as number) ?? 50,
+      style: (a.style as StyleObject) || defaultStyle
+    }
+  }
 
   // Load mapping data from sessionStorage
   useEffect(() => {
@@ -424,15 +315,35 @@ export default function CertificateMappingPage() {
             if (type === 'webinar') autoInclude.push('host_name')
             if (type === 'workshop') autoInclude.push('workshop_name')
 
+            // Migrate old structure with inline styles
+            const migratedAttributes: Record<string, AttributeBlock> = {}
+            const oldAttrs = typeData.attributes || {}
+            Object.keys(oldAttrs).forEach(attrName => {
+              migratedAttributes[attrName] = ensureAttributeStyle(oldAttrs[attrName], attrName)
+            })
+
             migratedData[type] = {
-              heading: typeData.heading || { text: DEFAULT_HEADINGS[type], x: 50, y: 20 },
-              descriptionTop: { text: DEFAULT_DESCRIPTION_TOP, x: 50, y: 30 },
-              descriptionBody: { text: DESCRIPTION_BODY_TEMPLATES[type], x: 50, y: 70 },
-              attributes: typeData.attributes || {},
+              heading: ensureTextBlockStyle(
+                typeData.heading || { text: DEFAULT_HEADINGS[type], x: 50, y: 20 },
+                { fontFamily: "Playfair Display", fontSize: 36, color: "#111827" }
+              ),
+              descriptionTop: {
+                text: DEFAULT_DESCRIPTION_TOP,
+                x: 50,
+                y: 30,
+                style: { fontFamily: "Inter", fontSize: 14, color: "#4B5563" }
+              },
+              descriptionBody: {
+                text: DESCRIPTION_BODY_TEMPLATES[type],
+                x: 50,
+                y: 70,
+                style: { fontFamily: "Roboto", fontSize: 14, color: "#4B5563" }
+              },
+              attributes: migratedAttributes,
               attributesInDescription: typeData.attributesInDescription || autoInclude,
             }
           } else if (typeData && typeData.descriptionTop && typeData.descriptionBody) {
-            // New structure, use as is but ensure attributesInDescription exists and includes required attrs
+            // New structure, ensure all blocks have inline styles
             let attrInDesc = typeData.attributesInDescription || []
             if (type === 'webinar' && !attrInDesc.includes('host_name')) {
               attrInDesc = [...attrInDesc, 'host_name']
@@ -441,29 +352,66 @@ export default function CertificateMappingPage() {
               attrInDesc = [...attrInDesc, 'workshop_name']
             }
 
+            // Migrate all attributes with styles
+            const migratedAttributes: Record<string, AttributeBlock> = {}
+            const oldAttrs = typeData.attributes || {}
+            Object.keys(oldAttrs).forEach(attrName => {
+              migratedAttributes[attrName] = ensureAttributeStyle(oldAttrs[attrName], attrName)
+            })
+
+            // Ensure heading2 exists with style
+            if (!migratedAttributes.heading2) {
+              migratedAttributes.heading2 = {
+                x: 50,
+                y: 26,
+                style: { fontFamily: "Playfair Display", fontSize: 24, color: "#111827" }
+              }
+            }
+
             migratedData[type] = {
-              ...typeData,
+              heading: ensureTextBlockStyle(
+                typeData.heading,
+                { fontFamily: "Playfair Display", fontSize: 36, color: "#111827" }
+              ),
+              descriptionTop: ensureTextBlockStyle(
+                typeData.descriptionTop,
+                { fontFamily: "Inter", fontSize: 14, color: "#4B5563" }
+              ),
+              descriptionBody: ensureTextBlockStyle(
+                typeData.descriptionBody,
+                { fontFamily: "Roboto", fontSize: 14, color: "#4B5563" }
+              ),
+              attributes: migratedAttributes,
               attributesInDescription: attrInDesc,
             }
-            
-            // Ensure heading2 position exists in attributes
-            if (!migratedData[type].attributes.heading2) {
-              migratedData[type].attributes.heading2 = { x: 50, y: 26 }
-            }
           } else {
-            // Missing or incomplete data, create fresh
+            // Missing or incomplete data, create fresh with inline styles
             const attrs = certificateAttributes[type]
-            const attrPositions: Record<string, Position> = {}
+            const attrBlocks: Record<string, AttributeBlock> = {}
             
             let yPos = 50
             attrs.forEach((attr) => {
               if (attr === "student_name") {
-                attrPositions[attr] = { x: 50, y: 40 }
+                attrBlocks[attr] = {
+                  x: 50,
+                  y: 40,
+                  style: { fontFamily: "Great Vibes", fontSize: 28, color: "#111827" }
+                }
               } else {
-                attrPositions[attr] = { x: 50, y: yPos }
+                attrBlocks[attr] = {
+                  x: 50,
+                  y: yPos,
+                  style: { fontFamily: "Inter", fontSize: 14, color: "#111827" }
+                }
                 yPos += 8
               }
             })
+
+            attrBlocks.heading2 = {
+              x: 50,
+              y: 26,
+              style: { fontFamily: "Playfair Display", fontSize: 24, color: "#111827" }
+            }
 
             const autoInclude = []
             if (type === 'course') autoInclude.push('course_name')
@@ -472,10 +420,25 @@ export default function CertificateMappingPage() {
             if (type === 'workshop') autoInclude.push('workshop_name')
 
             migratedData[type] = {
-              heading: { text: DEFAULT_HEADINGS[type], x: 50, y: 20 },
-              descriptionTop: { text: DEFAULT_DESCRIPTION_TOP, x: 50, y: 30 },
-              descriptionBody: { text: DESCRIPTION_BODY_TEMPLATES[type], x: 50, y: 70 },
-              attributes: { ...attrPositions, heading2: { x: 50, y: 26 } },
+              heading: {
+                text: DEFAULT_HEADINGS[type],
+                x: 50,
+                y: 20,
+                style: { fontFamily: "Playfair Display", fontSize: 36, color: "#111827" }
+              },
+              descriptionTop: {
+                text: DEFAULT_DESCRIPTION_TOP,
+                x: 50,
+                y: 30,
+                style: { fontFamily: "Inter", fontSize: 14, color: "#4B5563" }
+              },
+              descriptionBody: {
+                text: DESCRIPTION_BODY_TEMPLATES[type],
+                x: 50,
+                y: 70,
+                style: { fontFamily: "Roboto", fontSize: 14, color: "#4B5563" }
+              },
+              attributes: attrBlocks,
               attributesInDescription: autoInclude,
             }
           }
@@ -492,6 +455,7 @@ export default function CertificateMappingPage() {
       // No stored data, initialize fresh
       initializeFreshData()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [certificateAttributes])
 
   const initializeFreshData = () => {
@@ -499,21 +463,45 @@ export default function CertificateMappingPage() {
 
     ;(["course", "webinar", "workshop"] as CertificateType[]).forEach((type) => {
       const attrs = certificateAttributes[type]
-      const attrPositions: Record<string, Position> = {}
+      const attrBlocks: Record<string, AttributeBlock> = {}
       
-      // Initialize positions for all attributes
+      // Initialize positions and styles for all attributes
       let yPos = 50
       attrs.forEach((attr) => {
         if (attr === "student_name") {
-          attrPositions[attr] = { x: 50, y: 40 }
+          attrBlocks[attr] = {
+            x: 50,
+            y: 40,
+            style: {
+              fontFamily: "Great Vibes",
+              fontSize: 28,
+              color: "#111827"
+            }
+          }
         } else {
-          attrPositions[attr] = { x: 50, y: yPos }
+          attrBlocks[attr] = {
+            x: 50,
+            y: yPos,
+            style: {
+              fontFamily: "Inter",
+              fontSize: 14,
+              color: "#111827"
+            }
+          }
           yPos += 8
         }
       })
 
       // Initialize heading2 position (for when <br> is added)
-      attrPositions.heading2 = { x: 50, y: 26 }
+      attrBlocks.heading2 = {
+        x: 50,
+        y: 26,
+        style: {
+          fontFamily: "Playfair Display",
+          fontSize: 24,
+          color: "#111827"
+        }
+      }
 
       // Automatically include certain attributes in description
       const autoIncludeInDescription = []
@@ -531,10 +519,37 @@ export default function CertificateMappingPage() {
       }
 
       initialData[type] = {
-        heading: { text: DEFAULT_HEADINGS[type], x: 50, y: 20 },
-        descriptionTop: { text: DEFAULT_DESCRIPTION_TOP, x: 50, y: 30 },
-        descriptionBody: { text: DESCRIPTION_BODY_TEMPLATES[type], x: 50, y: 70 },
-        attributes: attrPositions,
+        heading: {
+          text: DEFAULT_HEADINGS[type],
+          x: 50,
+          y: 20,
+          style: {
+            fontFamily: "Playfair Display",
+            fontSize: 36,
+            color: "#111827"
+          }
+        },
+        descriptionTop: {
+          text: DEFAULT_DESCRIPTION_TOP,
+          x: 50,
+          y: 30,
+          style: {
+            fontFamily: "Inter",
+            fontSize: 14,
+            color: "#4B5563"
+          }
+        },
+        descriptionBody: {
+          text: DESCRIPTION_BODY_TEMPLATES[type],
+          x: 50,
+          y: 70,
+          style: {
+            fontFamily: "Roboto",
+            fontSize: 14,
+            color: "#4B5563"
+          }
+        },
+        attributes: attrBlocks,
         attributesInDescription: autoIncludeInDescription,
       }
     })
@@ -554,9 +569,17 @@ export default function CertificateMappingPage() {
     } else if (!include && current.includes(attr)) {
       newData[certificateType].attributesInDescription = current.filter(a => a !== attr)
       
-      // When moving attribute to draggable, ensure it has a position
+      // When moving attribute to draggable, ensure it has a position and style
       if (!newData[certificateType].attributes[attr]) {
-        newData[certificateType].attributes[attr] = { x: 50, y: 55 }
+        newData[certificateType].attributes[attr] = {
+          x: 50,
+          y: 55,
+          style: {
+            fontFamily: "Inter",
+            fontSize: 14,
+            color: "#111827"
+          }
+        }
       }
     }
     
@@ -655,9 +678,16 @@ export default function CertificateMappingPage() {
         if (!newData[certificateType].attributes) {
           newData[certificateType].attributes = {}
         }
+        // Preserve existing style or use default
+        const existingAttr = newData[certificateType].attributes[draggingElement]
         newData[certificateType].attributes[draggingElement] = {
           x: clampedX,
           y: clampedY,
+          style: existingAttr?.style || {
+            fontFamily: "Inter",
+            fontSize: 14,
+            color: "#111827"
+          }
         }
       }
       setMappingData(newData)
@@ -797,8 +827,7 @@ export default function CertificateMappingPage() {
           draggingElement={draggingElement}
           canvasRef={canvasRef}
           toggleAttributeInDescription={toggleAttributeInDescription}
-          textStyles={textStyles?.[certificateType] || DEFAULT_TEXT_STYLES}
-          updateTextStyle={updateTextStyle}
+          updateStyle={updateStyle}
           showVerticalGuide={showVerticalGuide}
           showHorizontalGuide={showHorizontalGuide}
         />
@@ -900,8 +929,7 @@ function CustomMappingView({
   draggingElement,
   canvasRef,
   toggleAttributeInDescription,
-  textStyles,
-  updateTextStyle,
+  updateStyle,
   showVerticalGuide,
   showHorizontalGuide,
 }: {
@@ -914,8 +942,7 @@ function CustomMappingView({
   draggingElement: string | null
   canvasRef: React.RefObject<HTMLDivElement | null>
   toggleAttributeInDescription: (attr: string, include: boolean) => void
-  textStyles: TextStyles
-  updateTextStyle: (block: keyof TextStyles, property: keyof TextStyle, value: string | number) => void
+  updateStyle: (blockType: "heading" | "descriptionTop" | "descriptionBody" | "attribute", blockName: string, property: "fontFamily" | "fontSize" | "color", value: string | number) => void
   showVerticalGuide: boolean
   showHorizontalGuide: boolean
 }) {
@@ -935,10 +962,6 @@ function CustomMappingView({
   // All attributes are standalone - none are embedded
   const attributesInDescription = currentMapping.attributesInDescription || []
   const draggableAttributes = attributes.filter(attr => !attributesInDescription.includes(attr))
-  
-  // Check if there are any draggable date fields
-  const dateFields = ["completion_date", "webinar_date", "workshop_date"]
-  const hasDraggableDates = draggableAttributes.some(attr => dateFields.includes(attr))
 
   // Check if an attribute is properly configured (ready to use)
   const isAttributeReady = (attr: string) => {
@@ -1029,7 +1052,14 @@ function CustomMappingView({
           <div className="space-y-3">
             {attributes.map((attr) => {
               const isInDescription = attributesInDescription.includes(attr)
-              const showCheckbox = attr !== 'student_name' && attr !== 'host_name' && attr !== 'workshop_name'
+              // Only show checkbox for: course_name, completion_date, webinar_name, webinar_date, workshop_date
+              const allowCheckbox = [
+                'course_name',
+                'completion_date',
+                'webinar_name', 
+                'webinar_date',
+                'workshop_date'
+              ].includes(attr)
               const isReady = isAttributeReady(attr)
               const IconComponent = ATTRIBUTE_ICONS[attr] || User
               
@@ -1040,11 +1070,11 @@ function CustomMappingView({
                       isReady ? "text-green-600" : "text-orange-600"
                     }`}
                   >
-                    <IconComponent className="w-4 h-4 flex-shrink-0" />
+                    <IconComponent className="w-4 h-4 shrink-0" />
                     {ATTRIBUTE_LABELS[attr] || attr}
                   </div>
                   
-                  {showCheckbox && (
+                  {allowCheckbox && (
                     <label className="flex items-center gap-2 px-3 text-xs cursor-pointer">
                       <input
                         type="checkbox"
@@ -1068,7 +1098,7 @@ function CustomMappingView({
               <strong>Green text</strong> = Ready to use<br/>
               <strong>Orange text</strong> = Missing in description<br/>
               <br/>
-              If you check "Include in description", write the attribute in the Description - Body field using this format:<br/>
+              If you check &ldquo;Include in description&rdquo;, write the attribute in the Description - Body field using this format:<br/>
               <span className="font-mono bg-white px-1 py-0.5 rounded border border-blue-300">
                 {"{attribute_name}"}
               </span>
@@ -1093,10 +1123,10 @@ function CustomMappingView({
               <div>
                 <label className="text-xs text-muted-foreground mb-1.5 block">Font Family</label>
                 <select
-                  value={textStyles.heading.fontFamily}
-                  onChange={(e) => updateTextStyle("heading", "fontFamily", e.target.value)}
+                  value={currentMapping.heading.style.fontFamily}
+                  onChange={(e) => updateStyle("heading", "heading", "fontFamily", e.target.value)}
                   className="w-full px-2 py-1.5 border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                  style={{ fontFamily: textStyles.heading.fontFamily }}
+                  style={{ fontFamily: currentMapping.heading.style.fontFamily }}
                 >
                   {FONT_OPTIONS.heading.map((font) => (
                     <option key={font} value={font} style={{ fontFamily: font }}>
@@ -1111,7 +1141,7 @@ function CustomMappingView({
                   <label className="text-xs text-muted-foreground mb-1.5 block">Font Size</label>
                   <div className="flex items-center gap-1">
                     <button
-                      onClick={() => updateTextStyle("heading", "fontSize", Math.max(20, textStyles.heading.fontSize - 1))}
+                      onClick={() => updateStyle("heading", "heading", "fontSize", Math.max(20, currentMapping.heading.style.fontSize - 1))}
                       className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
                     >
                       −
@@ -1120,12 +1150,12 @@ function CustomMappingView({
                       type="number"
                       min="20"
                       max="60"
-                      value={textStyles.heading.fontSize}
-                      onChange={(e) => updateTextStyle("heading", "fontSize", Math.max(20, Math.min(60, parseInt(e.target.value) || 20)))}
+                      value={currentMapping.heading.style.fontSize}
+                      onChange={(e) => updateStyle("heading", "heading", "fontSize", Math.max(20, Math.min(60, parseInt(e.target.value) || 20)))}
                       className="w-14 px-2 py-1 text-center border border-border rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                     <button
-                      onClick={() => updateTextStyle("heading", "fontSize", Math.min(60, textStyles.heading.fontSize + 1))}
+                      onClick={() => updateStyle("heading", "heading", "fontSize", Math.min(60, currentMapping.heading.style.fontSize + 1))}
                       className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
                     >
                       +
@@ -1138,8 +1168,8 @@ function CustomMappingView({
                   <label className="text-xs text-muted-foreground mb-1.5 block">Color</label>
                   <input
                     type="color"
-                    value={textStyles.heading.color}
-                    onChange={(e) => updateTextStyle("heading", "color", e.target.value)}
+                    value={currentMapping.heading.style.color}
+                    onChange={(e) => updateStyle("heading", "heading", "color", e.target.value)}
                     className="w-12 h-7 border border-border rounded cursor-pointer"
                   />
                 </div>
@@ -1158,7 +1188,7 @@ function CustomMappingView({
                     <label className="text-xs text-muted-foreground mb-1.5 block">Font Size</label>
                     <div className="flex items-center gap-1">
                       <button
-                        onClick={() => updateTextStyle("heading2", "fontSize", Math.max(16, textStyles.heading2.fontSize - 1))}
+                        onClick={() => updateStyle("attribute", "heading2", "fontSize", Math.max(16, (currentMapping.attributes.heading2?.style.fontSize || 24) - 1))}
                         className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
                       >
                         −
@@ -1167,12 +1197,12 @@ function CustomMappingView({
                         type="number"
                         min="16"
                         max="48"
-                        value={textStyles.heading2.fontSize}
-                        onChange={(e) => updateTextStyle("heading2", "fontSize", Math.max(16, Math.min(48, parseInt(e.target.value) || 16)))}
+                        value={currentMapping.attributes.heading2?.style.fontSize || 24}
+                        onChange={(e) => updateStyle("attribute", "heading2", "fontSize", Math.max(16, Math.min(48, parseInt(e.target.value) || 16)))}
                         className="w-14 px-2 py-1 text-center border border-border rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                       />
                       <button
-                        onClick={() => updateTextStyle("heading2", "fontSize", Math.min(48, textStyles.heading2.fontSize + 1))}
+                        onClick={() => updateStyle("attribute", "heading2", "fontSize", Math.min(48, (currentMapping.attributes.heading2?.style.fontSize || 24) + 1))}
                         className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
                       >
                         +
@@ -1197,10 +1227,10 @@ function CustomMappingView({
               <div>
                 <label className="text-xs text-muted-foreground mb-1.5 block">Font Family</label>
                 <select
-                  value={textStyles.descriptionTop.fontFamily}
-                  onChange={(e) => updateTextStyle("descriptionTop", "fontFamily", e.target.value)}
+                  value={currentMapping.descriptionTop.style.fontFamily}
+                  onChange={(e) => updateStyle("descriptionTop", "descriptionTop", "fontFamily", e.target.value)}
                   className="w-full px-2 py-1.5 border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                  style={{ fontFamily: textStyles.descriptionTop.fontFamily }}
+                  style={{ fontFamily: currentMapping.descriptionTop.style.fontFamily }}
                 >
                   {FONT_OPTIONS.descriptionTop.map((font) => (
                     <option key={font} value={font} style={{ fontFamily: font }}>
@@ -1215,7 +1245,7 @@ function CustomMappingView({
                   <label className="text-xs text-muted-foreground mb-1.5 block">Font Size</label>
                   <div className="flex items-center gap-1">
                     <button
-                      onClick={() => updateTextStyle("descriptionTop", "fontSize", Math.max(10, textStyles.descriptionTop.fontSize - 1))}
+                      onClick={() => updateStyle("descriptionTop", "descriptionTop", "fontSize", Math.max(10, currentMapping.descriptionTop.style.fontSize - 1))}
                       className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
                     >
                       −
@@ -1224,12 +1254,12 @@ function CustomMappingView({
                       type="number"
                       min="10"
                       max="24"
-                      value={textStyles.descriptionTop.fontSize}
-                      onChange={(e) => updateTextStyle("descriptionTop", "fontSize", Math.max(10, Math.min(24, parseInt(e.target.value) || 10)))}
+                      value={currentMapping.descriptionTop.style.fontSize}
+                      onChange={(e) => updateStyle("descriptionTop", "descriptionTop", "fontSize", Math.max(10, Math.min(24, parseInt(e.target.value) || 10)))}
                       className="w-14 px-2 py-1 text-center border border-border rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                     <button
-                      onClick={() => updateTextStyle("descriptionTop", "fontSize", Math.min(24, textStyles.descriptionTop.fontSize + 1))}
+                      onClick={() => updateStyle("descriptionTop", "descriptionTop", "fontSize", Math.min(24, currentMapping.descriptionTop.style.fontSize + 1))}
                       className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
                     >
                       +
@@ -1242,8 +1272,8 @@ function CustomMappingView({
                   <label className="text-xs text-muted-foreground mb-1.5 block">Color</label>
                   <input
                     type="color"
-                    value={textStyles.descriptionTop.color}
-                    onChange={(e) => updateTextStyle("descriptionTop", "color", e.target.value)}
+                    value={currentMapping.descriptionTop.style.color}
+                    onChange={(e) => updateStyle("descriptionTop", "descriptionTop", "color", e.target.value)}
                     className="w-12 h-7 border border-border rounded cursor-pointer"
                   />
                 </div>
@@ -1259,10 +1289,10 @@ function CustomMappingView({
               <div>
                 <label className="text-xs text-muted-foreground mb-1.5 block">Font Family</label>
                 <select
-                  value={textStyles.studentName.fontFamily}
-                  onChange={(e) => updateTextStyle("studentName", "fontFamily", e.target.value)}
+                  value={currentMapping.attributes.student_name?.style.fontFamily || "Great Vibes"}
+                  onChange={(e) => updateStyle("attribute", "student_name", "fontFamily", e.target.value)}
                   className="w-full px-2 py-1.5 border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                  style={{ fontFamily: textStyles.studentName.fontFamily }}
+                  style={{ fontFamily: currentMapping.attributes.student_name?.style.fontFamily || "Great Vibes" }}
                 >
                   {FONT_OPTIONS.studentName.map((font) => (
                     <option key={font} value={font} style={{ fontFamily: font }}>
@@ -1277,7 +1307,7 @@ function CustomMappingView({
                   <label className="text-xs text-muted-foreground mb-1.5 block">Font Size</label>
                   <div className="flex items-center gap-1">
                     <button
-                      onClick={() => updateTextStyle("studentName", "fontSize", Math.max(18, textStyles.studentName.fontSize - 1))}
+                      onClick={() => updateStyle("attribute", "student_name", "fontSize", Math.max(18, (currentMapping.attributes.student_name?.style.fontSize || 28) - 1))}
                       className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
                     >
                       −
@@ -1286,12 +1316,12 @@ function CustomMappingView({
                       type="number"
                       min="18"
                       max="48"
-                      value={textStyles.studentName.fontSize}
-                      onChange={(e) => updateTextStyle("studentName", "fontSize", Math.max(18, Math.min(48, parseInt(e.target.value) || 18)))}
+                      value={currentMapping.attributes.student_name?.style.fontSize || 28}
+                      onChange={(e) => updateStyle("attribute", "student_name", "fontSize", Math.max(18, Math.min(48, parseInt(e.target.value) || 18)))}
                       className="w-14 px-2 py-1 text-center border border-border rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                     <button
-                      onClick={() => updateTextStyle("studentName", "fontSize", Math.min(48, textStyles.studentName.fontSize + 1))}
+                      onClick={() => updateStyle("attribute", "student_name", "fontSize", Math.min(48, (currentMapping.attributes.student_name?.style.fontSize || 28) + 1))}
                       className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
                     >
                       +
@@ -1304,8 +1334,8 @@ function CustomMappingView({
                   <label className="text-xs text-muted-foreground mb-1.5 block">Color</label>
                   <input
                     type="color"
-                    value={textStyles.studentName.color}
-                    onChange={(e) => updateTextStyle("studentName", "color", e.target.value)}
+                    value={currentMapping.attributes.student_name?.style.color || "#111827"}
+                    onChange={(e) => updateStyle("attribute", "student_name", "color", e.target.value)}
                     className="w-12 h-7 border border-border rounded cursor-pointer"
                   />
                 </div>
@@ -1314,245 +1344,91 @@ function CustomMappingView({
 
             <div className="border-t border-border"></div>
 
-            {/* Date Fields Font Size (only if there are draggable dates) */}
-            {hasDraggableDates && (
-              <>
-                <div className="space-y-3">
-                  <h4 className="text-xs font-semibold text-foreground">Date Fields</h4>
-                  
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1">
-                      <label className="text-xs text-muted-foreground mb-1.5 block">Font Size</label>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => updateTextStyle("dateFields", "fontSize", Math.max(10, textStyles.dateFields.fontSize - 1))}
-                          className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
-                        >
-                          −
-                        </button>
-                        <input
-                          type="number"
-                          min="10"
-                          max="32"
-                          value={textStyles.dateFields.fontSize}
-                          onChange={(e) => updateTextStyle("dateFields", "fontSize", Math.max(10, Math.min(32, parseInt(e.target.value) || 10)))}
-                          className="w-14 px-2 py-1 text-center border border-border rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                        />
-                        <button
-                          onClick={() => updateTextStyle("dateFields", "fontSize", Math.min(32, textStyles.dateFields.fontSize + 1))}
-                          className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
-                        >
-                          +
-                        </button>
-                        <span className="text-xs text-muted-foreground ml-1">px</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <p className="text-xs text-muted-foreground italic">
-                    Applies to draggable date fields only
-                  </p>
-                </div>
-                
-                <div className="border-t border-border"></div>
-              </>
-            )}
-
-            {/* Course/Webinar/Workshop Name Styles (only if draggable) */}
-            {certificateType === "course" && !attributesInDescription.includes("course_name") && attributes.includes("course_name") && (
-              <>
-                <div className="space-y-3">
-                  <h4 className="text-xs font-semibold text-foreground">Course Name</h4>
-                  
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1.5 block">Font Family</label>
-                    <select
-                      value={textStyles.courseName.fontFamily}
-                      onChange={(e) => updateTextStyle("courseName", "fontFamily", e.target.value)}
-                      className="w-full px-2 py-1.5 border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                      style={{ fontFamily: textStyles.courseName.fontFamily }}
-                    >
-                      {FONT_OPTIONS.courseName.map((font) => (
-                        <option key={font} value={font} style={{ fontFamily: font }}>
-                          {font}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1">
-                      <label className="text-xs text-muted-foreground mb-1.5 block">Font Size</label>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => updateTextStyle("courseName", "fontSize", Math.max(12, textStyles.courseName.fontSize - 1))}
-                          className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
-                        >
-                          −
-                        </button>
-                        <input
-                          type="number"
-                          min="12"
-                          max="36"
-                          value={textStyles.courseName.fontSize}
-                          onChange={(e) => updateTextStyle("courseName", "fontSize", Math.max(12, Math.min(36, parseInt(e.target.value) || 12)))}
-                          className="w-14 px-2 py-1 text-center border border-border rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                        />
-                        <button
-                          onClick={() => updateTextStyle("courseName", "fontSize", Math.min(36, textStyles.courseName.fontSize + 1))}
-                          className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
-                        >
-                          +
-                        </button>
-                        <span className="text-xs text-muted-foreground ml-1">px</span>
-                      </div>
-                    </div>
-
+            {/* Draggable Attribute Styles (conditional) */}
+            {[
+              { attr: 'course_name', label: 'Course Name' },
+              { attr: 'completion_date', label: 'Completion Date' },
+              { attr: 'webinar_name', label: 'Webinar Name' },
+              { attr: 'webinar_date', label: 'Webinar Date' },
+              { attr: 'workshop_date', label: 'Workshop Date' },
+            ].map(({ attr, label }) => {
+              const isInDescription = attributesInDescription.includes(attr)
+              const hasAttribute = attributes.includes(attr)
+              
+              // Only show styling controls if attribute exists AND is draggable (not in description)
+              if (!hasAttribute || isInDescription) return null
+              
+              const attrStyle = currentMapping.attributes[attr]?.style || {
+                fontFamily: "Inter",
+                fontSize: 14,
+                color: "#111827"
+              }
+              
+              return (
+                <React.Fragment key={attr}>
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-semibold text-foreground">{label}</h4>
+                    
                     <div>
-                      <label className="text-xs text-muted-foreground mb-1.5 block">Color</label>
-                      <input
-                        type="color"
-                        value={textStyles.courseName.color}
-                        onChange={(e) => updateTextStyle("courseName", "color", e.target.value)}
-                        className="w-12 h-7 border border-border rounded cursor-pointer"
-                      />
+                      <label className="text-xs text-muted-foreground mb-1.5 block">Font Family</label>
+                      <select
+                        value={attrStyle.fontFamily}
+                        onChange={(e) => updateStyle("attribute", attr, "fontFamily", e.target.value)}
+                        className="w-full px-2 py-1.5 border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                        style={{ fontFamily: attrStyle.fontFamily }}
+                      >
+                        {FONT_OPTIONS.descriptionBody.map((font) => (
+                          <option key={font} value={font} style={{ fontFamily: font }}>
+                            {font}
+                          </option>
+                        ))}
+                      </select>
                     </div>
-                  </div>
-                </div>
-                
-                <div className="border-t border-border"></div>
-              </>
-            )}
 
-            {certificateType === "webinar" && !attributesInDescription.includes("webinar_name") && attributes.includes("webinar_name") && (
-              <>
-                <div className="space-y-3">
-                  <h4 className="text-xs font-semibold text-foreground">Webinar Name</h4>
-                  
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1.5 block">Font Family</label>
-                    <select
-                      value={textStyles.webinarName.fontFamily}
-                      onChange={(e) => updateTextStyle("webinarName", "fontFamily", e.target.value)}
-                      className="w-full px-2 py-1.5 border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                      style={{ fontFamily: textStyles.webinarName.fontFamily }}
-                    >
-                      {FONT_OPTIONS.webinarName.map((font) => (
-                        <option key={font} value={font} style={{ fontFamily: font }}>
-                          {font}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1">
+                        <label className="text-xs text-muted-foreground mb-1.5 block">Font Size</label>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => updateStyle("attribute", attr, "fontSize", Math.max(10, attrStyle.fontSize - 1))}
+                            className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
+                          >
+                            −
+                          </button>
+                          <input
+                            type="number"
+                            min="10"
+                            max="32"
+                            value={attrStyle.fontSize}
+                            onChange={(e) => updateStyle("attribute", attr, "fontSize", Math.max(10, Math.min(32, parseInt(e.target.value) || 10)))}
+                            className="w-14 px-2 py-1 text-center border border-border rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                          />
+                          <button
+                            onClick={() => updateStyle("attribute", attr, "fontSize", Math.min(32, attrStyle.fontSize + 1))}
+                            className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
+                          >
+                            +
+                          </button>
+                          <span className="text-xs text-muted-foreground ml-1">px</span>
+                        </div>
+                      </div>
 
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1">
-                      <label className="text-xs text-muted-foreground mb-1.5 block">Font Size</label>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => updateTextStyle("webinarName", "fontSize", Math.max(12, textStyles.webinarName.fontSize - 1))}
-                          className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
-                        >
-                          −
-                        </button>
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1.5 block">Color</label>
                         <input
-                          type="number"
-                          min="12"
-                          max="36"
-                          value={textStyles.webinarName.fontSize}
-                          onChange={(e) => updateTextStyle("webinarName", "fontSize", Math.max(12, Math.min(36, parseInt(e.target.value) || 12)))}
-                          className="w-14 px-2 py-1 text-center border border-border rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                          type="color"
+                          value={attrStyle.color}
+                          onChange={(e) => updateStyle("attribute", attr, "color", e.target.value)}
+                          className="w-12 h-7 border border-border rounded cursor-pointer"
                         />
-                        <button
-                          onClick={() => updateTextStyle("webinarName", "fontSize", Math.min(36, textStyles.webinarName.fontSize + 1))}
-                          className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
-                        >
-                          +
-                        </button>
-                        <span className="text-xs text-muted-foreground ml-1">px</span>
                       </div>
                     </div>
-
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1.5 block">Color</label>
-                      <input
-                        type="color"
-                        value={textStyles.webinarName.color}
-                        onChange={(e) => updateTextStyle("webinarName", "color", e.target.value)}
-                        className="w-12 h-7 border border-border rounded cursor-pointer"
-                      />
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="border-t border-border"></div>
-              </>
-            )}
-
-            {certificateType === "workshop" && !attributesInDescription.includes("workshop_name") && attributes.includes("workshop_name") && (
-              <>
-                <div className="space-y-3">
-                  <h4 className="text-xs font-semibold text-foreground">Workshop Name</h4>
-                  
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1.5 block">Font Family</label>
-                    <select
-                      value={textStyles.workshopName.fontFamily}
-                      onChange={(e) => updateTextStyle("workshopName", "fontFamily", e.target.value)}
-                      className="w-full px-2 py-1.5 border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                      style={{ fontFamily: textStyles.workshopName.fontFamily }}
-                    >
-                      {FONT_OPTIONS.workshopName.map((font) => (
-                        <option key={font} value={font} style={{ fontFamily: font }}>
-                          {font}
-                        </option>
-                      ))}
-                    </select>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1">
-                      <label className="text-xs text-muted-foreground mb-1.5 block">Font Size</label>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => updateTextStyle("workshopName", "fontSize", Math.max(12, textStyles.workshopName.fontSize - 1))}
-                          className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
-                        >
-                          −
-                        </button>
-                        <input
-                          type="number"
-                          min="12"
-                          max="36"
-                          value={textStyles.workshopName.fontSize}
-                          onChange={(e) => updateTextStyle("workshopName", "fontSize", Math.max(12, Math.min(36, parseInt(e.target.value) || 12)))}
-                          className="w-14 px-2 py-1 text-center border border-border rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                        />
-                        <button
-                          onClick={() => updateTextStyle("workshopName", "fontSize", Math.min(36, textStyles.workshopName.fontSize + 1))}
-                          className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
-                        >
-                          +
-                        </button>
-                        <span className="text-xs text-muted-foreground ml-1">px</span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1.5 block">Color</label>
-                      <input
-                        type="color"
-                        value={textStyles.workshopName.color}
-                        onChange={(e) => updateTextStyle("workshopName", "color", e.target.value)}
-                        className="w-12 h-7 border border-border rounded cursor-pointer"
-                      />
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="border-t border-border"></div>
-              </>
-            )}
+                  <div className="border-t border-border"></div>
+                </React.Fragment>
+              )
+            })}
 
             {/* Description Body Styles */}
             <div className="space-y-3">
@@ -1561,10 +1437,10 @@ function CustomMappingView({
               <div>
                 <label className="text-xs text-muted-foreground mb-1.5 block">Font Family</label>
                 <select
-                  value={textStyles.descriptionBody.fontFamily}
-                  onChange={(e) => updateTextStyle("descriptionBody", "fontFamily", e.target.value)}
+                  value={currentMapping.descriptionBody.style.fontFamily}
+                  onChange={(e) => updateStyle("descriptionBody", "descriptionBody", "fontFamily", e.target.value)}
                   className="w-full px-2 py-1.5 border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                  style={{ fontFamily: textStyles.descriptionBody.fontFamily }}
+                  style={{ fontFamily: currentMapping.descriptionBody.style.fontFamily }}
                 >
                   {FONT_OPTIONS.descriptionBody.map((font) => (
                     <option key={font} value={font} style={{ fontFamily: font }}>
@@ -1579,7 +1455,7 @@ function CustomMappingView({
                   <label className="text-xs text-muted-foreground mb-1.5 block">Font Size</label>
                   <div className="flex items-center gap-1">
                     <button
-                      onClick={() => updateTextStyle("descriptionBody", "fontSize", Math.max(10, textStyles.descriptionBody.fontSize - 1))}
+                      onClick={() => updateStyle("descriptionBody", "descriptionBody", "fontSize", Math.max(10, currentMapping.descriptionBody.style.fontSize - 1))}
                       className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
                     >
                       −
@@ -1588,12 +1464,12 @@ function CustomMappingView({
                       type="number"
                       min="10"
                       max="24"
-                      value={textStyles.descriptionBody.fontSize}
-                      onChange={(e) => updateTextStyle("descriptionBody", "fontSize", Math.max(10, Math.min(24, parseInt(e.target.value) || 10)))}
+                      value={currentMapping.descriptionBody.style.fontSize}
+                      onChange={(e) => updateStyle("descriptionBody", "descriptionBody", "fontSize", Math.max(10, Math.min(24, parseInt(e.target.value) || 10)))}
                       className="w-14 px-2 py-1 text-center border border-border rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                     <button
-                      onClick={() => updateTextStyle("descriptionBody", "fontSize", Math.min(24, textStyles.descriptionBody.fontSize + 1))}
+                      onClick={() => updateStyle("descriptionBody", "descriptionBody", "fontSize", Math.min(24, currentMapping.descriptionBody.style.fontSize + 1))}
                       className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
                     >
                       +
@@ -1606,8 +1482,8 @@ function CustomMappingView({
                   <label className="text-xs text-muted-foreground mb-1.5 block">Color</label>
                   <input
                     type="color"
-                    value={textStyles.descriptionBody.color}
-                    onChange={(e) => updateTextStyle("descriptionBody", "color", e.target.value)}
+                    value={currentMapping.descriptionBody.style.color}
+                    onChange={(e) => updateStyle("descriptionBody", "descriptionBody", "color", e.target.value)}
                     className="w-12 h-7 border border-border rounded cursor-pointer"
                   />
                 </div>
@@ -1636,13 +1512,13 @@ function CustomMappingView({
             {/* Center Guide Lines */}
             {showVerticalGuide && (
               <div
-                className="absolute top-0 bottom-0 w-[1px] bg-blue-500 pointer-events-none"
+                className="absolute top-0 bottom-0 w-px bg-blue-500 pointer-events-none"
                 style={{ left: '50%', transform: 'translateX(-50%)', zIndex: 10 }}
               />
             )}
             {showHorizontalGuide && (
               <div
-                className="absolute left-0 right-0 h-[1px] bg-blue-500 pointer-events-none"
+                className="absolute left-0 right-0 h-px bg-blue-500 pointer-events-none"
                 style={{ top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}
               />
             )}
@@ -1662,9 +1538,9 @@ function CustomMappingView({
               <div 
                 className="text-center font-bold whitespace-nowrap px-2 py-1 hover:bg-primary/10 rounded transition-colors select-none"
                 style={{
-                  fontFamily: textStyles.heading.fontFamily,
-                  fontSize: `${textStyles.heading.fontSize}px`,
-                  color: textStyles.heading.color,
+                  fontFamily: currentMapping.heading.style.fontFamily,
+                  fontSize: `${currentMapping.heading.style.fontSize}px`,
+                  color: currentMapping.heading.style.color,
                   userSelect: "none",
                 }}
               >
@@ -1690,9 +1566,9 @@ function CustomMappingView({
                 <div 
                   className="text-center whitespace-nowrap px-2 py-1 hover:bg-primary/10 rounded transition-colors select-none"
                   style={{
-                    fontFamily: textStyles.heading.fontFamily,
-                    fontSize: `${textStyles.heading2.fontSize}px`,
-                    color: textStyles.heading.color,
+                    fontFamily: currentMapping.heading.style.fontFamily,
+                    fontSize: `${currentMapping.attributes.heading2?.style.fontSize || 24}px`,
+                    color: currentMapping.heading.style.color,
                     userSelect: "none",
                   }}
                 >
@@ -1716,9 +1592,9 @@ function CustomMappingView({
               <div 
                 className="text-center px-2 py-1 hover:bg-primary/10 rounded transition-colors select-none"
                 style={{
-                  fontFamily: textStyles.descriptionTop.fontFamily,
-                  fontSize: `${textStyles.descriptionTop.fontSize}px`,
-                  color: textStyles.descriptionTop.color,
+                  fontFamily: currentMapping.descriptionTop.style.fontFamily,
+                  fontSize: `${currentMapping.descriptionTop.style.fontSize}px`,
+                  color: currentMapping.descriptionTop.style.color,
                   userSelect: "none",
                 }}
               >
@@ -1731,16 +1607,17 @@ function CustomMappingView({
               const pos = currentMapping.attributes[attr]
               if (!pos) return null
               
-              // Student name uses special styling
-              const isStudentName = attr === 'student_name'
-              
-              // Date fields use date styling
-              const isDateField = ["completion_date", "webinar_date", "workshop_date"].includes(attr)
-              
-              // Course/Webinar/Workshop name styling
-              const isCourseName = attr === 'course_name'
-              const isWebinarName = attr === 'webinar_name'
-              const isWorkshopName = attr === 'workshop_name'
+              // Determine style based on attribute type
+              let attrStyle = pos.style
+              if (attr === 'student_name') {
+                // Student name always uses its own style
+                attrStyle = currentMapping.attributes.student_name?.style || {
+                  fontFamily: "Great Vibes",
+                  fontSize: 28,
+                  color: "#111827"
+                }
+              }
+              // Other draggable attributes use their stored style
               
               return (
                 <div
@@ -1753,30 +1630,12 @@ function CustomMappingView({
                 >
                   <div 
                     className="text-center font-semibold px-3 py-1 hover:bg-primary/10 rounded transition-colors whitespace-nowrap select-none"
-                    style={isStudentName ? {
-                      fontFamily: textStyles.studentName.fontFamily,
-                      fontSize: `${textStyles.studentName.fontSize}px`,
-                      color: textStyles.studentName.color,
+                    style={{
+                      fontFamily: attrStyle.fontFamily,
+                      fontSize: `${attrStyle.fontSize}px`,
+                      color: attrStyle.color,
                       userSelect: "none",
-                    } : isCourseName ? {
-                      fontFamily: textStyles.courseName.fontFamily,
-                      fontSize: `${textStyles.courseName.fontSize}px`,
-                      color: textStyles.courseName.color,
-                      userSelect: "none",
-                    } : isWebinarName ? {
-                      fontFamily: textStyles.webinarName.fontFamily,
-                      fontSize: `${textStyles.webinarName.fontSize}px`,
-                      color: textStyles.webinarName.color,
-                      userSelect: "none",
-                    } : isWorkshopName ? {
-                      fontFamily: textStyles.workshopName.fontFamily,
-                      fontSize: `${textStyles.workshopName.fontSize}px`,
-                      color: textStyles.workshopName.color,
-                      userSelect: "none",
-                    } : isDateField ? {
-                      fontSize: `${textStyles.dateFields.fontSize}px`,
-                      userSelect: "none",
-                    } : { userSelect: "none" }}
+                    }}
                   >
                     {MOCK_DATA[attr]}
                   </div>
@@ -1784,7 +1643,7 @@ function CustomMappingView({
               )
             })}
 
-            {/* Description Body - supports <br> tags */}
+            {/* Description Body - supports <br> tags and replaces {attribute} placeholders */}
             <div
               className={`absolute transform -translate-x-1/2 -translate-y-1/2 max-w-[80%] cursor-grab active:cursor-grabbing select-none ${
                 draggingElement === "descriptionBody" ? "opacity-70" : ""
@@ -1799,13 +1658,18 @@ function CustomMappingView({
               <div 
                 className="text-center px-2 py-1 hover:bg-primary/10 rounded transition-colors select-none"
                 style={{
-                  fontFamily: textStyles.descriptionBody.fontFamily,
-                  fontSize: `${textStyles.descriptionBody.fontSize}px`,
-                  color: textStyles.descriptionBody.color,
+                  fontFamily: currentMapping.descriptionBody.style.fontFamily,
+                  fontSize: `${currentMapping.descriptionBody.style.fontSize}px`,
+                  color: currentMapping.descriptionBody.style.color,
                   userSelect: "none",
                 }}
                 dangerouslySetInnerHTML={{ 
-                  __html: currentMapping.descriptionBody.text.replace(/<br>/gi, '<br/>') 
+                  __html: currentMapping.descriptionBody.text
+                    .replace(/<br>/gi, '<br/>')
+                    .replace(/\{([^}]+)\}/g, (match, attrName) => {
+                      // Replace {attribute_name} with actual mock data value
+                      return MOCK_DATA[attrName] || match
+                    })
                 }}
               />
             </div>

@@ -56,6 +56,7 @@ import {
   storeCertificateAttributes,
   getCertificateAttributes,
   clearCertificateAttributes,
+  postCertificateAttributes,
   CERTIFICATE_ATTRIBUTES,
   ALLOWED_FILE_TYPES,
   type BaseCertificateTemplate,
@@ -271,9 +272,18 @@ export default function TemplatesPage() {
     }
   }
 
-  const handleStep2Complete = () => {
-    // All cards completed, move to step 3
-    setActiveStep(2) // Move to step 3 (0-indexed)
+  const handleStep2Complete = async () => {
+    try {
+      // Post certificate attributes to API
+      await postCertificateAttributes()
+      
+      // All cards completed, move to step 3
+      setActiveStep(2) // Move to step 3 (0-indexed)
+    } catch (error) {
+      console.error("Failed to save certificate attributes:", error)
+      // Still allow moving to step 3 since data is in sessionStorage
+      setActiveStep(2)
+    }
   }
 
   const handleGenerateRedirect = () => {

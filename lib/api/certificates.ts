@@ -262,3 +262,89 @@ hour: '2-digit',
 minute: '2-digit',
 });
 }
+
+/**
+ * POST certificate attributes
+ * Sends selected certificate attributes to the server
+ */
+export async function postCertificateAttributes(): Promise<{ success: boolean; message?: string }> {
+const token = sessionStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+
+if (!token) {
+throw new Error("No authentication token found");
+}
+
+// Get attributes from sessionStorage
+const attributes = getCertificateAttributes();
+if (!attributes) {
+throw new Error("No certificate attributes found in session");
+}
+
+const response = await fetch(
+`${API_CONFIG.BASE_URL}/api/certificates/attributes`,
+{
+method: "POST",
+headers: {
+"Authorization": `Bearer ${token}`,
+"Content-Type": "application/json",
+},
+body: JSON.stringify({ certificate_attributes: attributes }),
+}
+);
+
+const data = await response.json();
+
+if (!response.ok) {
+throw new Error(data.message || "Failed to save certificate attributes");
+}
+
+return data;
+}
+
+/**
+ * GET certificate attributes
+ * Fetches certificate attributes from server or sessionStorage
+ */
+export async function fetchCertificateAttributes(): Promise<CertificateAttributes | null> {
+// First check if attributes exist in sessionStorage
+const cachedAttributes = getCertificateAttributes();
+if (cachedAttributes) {
+return cachedAttributes;
+}
+
+const token = sessionStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+
+if (!token) {
+throw new Error("No authentication token found");
+}
+
+try {
+const response = await fetch(
+`${API_CONFIG.BASE_URL}/api/certificates/attributes`,
+{
+method: "GET",
+headers: {
+"Authorization": `Bearer ${token}`,
+"Content-Type": "application/json",
+},
+}
+);
+
+const data = await response.json();
+
+if (!response.ok) {
+throw new Error(data.message || "Failed to fetch certificate attributes");
+}
+
+if (data.success && data.data) {
+// Store in sessionStorage
+storeCertificateAttributes(data.data);
+return data.data;
+}
+
+return null;
+} catch (error) {
+console.error("Failed to fetch certificate attributes:", error);
+throw error;
+}
+}

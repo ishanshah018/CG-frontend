@@ -45,6 +45,9 @@ interface TextStyles {
   studentName: TextStyle
   descriptionBody: TextStyle
   dateFields: { fontSize: number }
+  courseName: TextStyle
+  webinarName: TextStyle
+  workshopName: TextStyle
 }
 
 type AllTextStyles = Record<CertificateType, TextStyles>
@@ -158,6 +161,24 @@ const FONT_OPTIONS = {
     "Open Sans",
     "Source Sans 3",
   ],
+  courseName: [
+    "Playfair Display",
+    "Libre Baskerville",
+    "Cormorant Garamond",
+    "Merriweather",
+  ],
+  webinarName: [
+    "Playfair Display",
+    "Libre Baskerville",
+    "Cormorant Garamond",
+    "Merriweather",
+  ],
+  workshopName: [
+    "Playfair Display",
+    "Libre Baskerville",
+    "Cormorant Garamond",
+    "Merriweather",
+  ],
 }
 
 // Default text styles
@@ -189,6 +210,21 @@ const DEFAULT_TEXT_STYLES: TextStyles = {
   dateFields: {
     fontSize: 16,
   },
+  courseName: {
+    fontFamily: "Playfair Display",
+    fontSize: 18,
+    color: "#1a1a1a",
+  },
+  webinarName: {
+    fontFamily: "Playfair Display",
+    fontSize: 18,
+    color: "#1a1a1a",
+  },
+  workshopName: {
+    fontFamily: "Playfair Display",
+    fontSize: 18,
+    color: "#1a1a1a",
+  },
 }
 
 export default function CertificateMappingPage() {
@@ -208,6 +244,8 @@ export default function CertificateMappingPage() {
     workshop: [],
   })
   const [textStyles, setTextStyles] = useState<AllTextStyles | null>(null)
+  const [showVerticalGuide, setShowVerticalGuide] = useState(false)
+  const [showHorizontalGuide, setShowHorizontalGuide] = useState(false)
 
   // Load Google Fonts
   useEffect(() => {
@@ -257,18 +295,27 @@ export default function CertificateMappingPage() {
             ...(parsed.course || {}),
             heading2: { ...DEFAULT_TEXT_STYLES.heading2, ...(parsed.course?.heading2 || {}) },
             dateFields: { ...DEFAULT_TEXT_STYLES.dateFields, ...(parsed.course?.dateFields || {}) },
+            courseName: { ...DEFAULT_TEXT_STYLES.courseName, ...(parsed.course?.courseName || {}) },
+            webinarName: { ...DEFAULT_TEXT_STYLES.webinarName, ...(parsed.course?.webinarName || {}) },
+            workshopName: { ...DEFAULT_TEXT_STYLES.workshopName, ...(parsed.course?.workshopName || {}) },
           },
           webinar: {
             ...DEFAULT_TEXT_STYLES,
             ...(parsed.webinar || {}),
             heading2: { ...DEFAULT_TEXT_STYLES.heading2, ...(parsed.webinar?.heading2 || {}) },
             dateFields: { ...DEFAULT_TEXT_STYLES.dateFields, ...(parsed.webinar?.dateFields || {}) },
+            courseName: { ...DEFAULT_TEXT_STYLES.courseName, ...(parsed.webinar?.courseName || {}) },
+            webinarName: { ...DEFAULT_TEXT_STYLES.webinarName, ...(parsed.webinar?.webinarName || {}) },
+            workshopName: { ...DEFAULT_TEXT_STYLES.workshopName, ...(parsed.webinar?.workshopName || {}) },
           },
           workshop: {
             ...DEFAULT_TEXT_STYLES,
             ...(parsed.workshop || {}),
             heading2: { ...DEFAULT_TEXT_STYLES.heading2, ...(parsed.workshop?.heading2 || {}) },
             dateFields: { ...DEFAULT_TEXT_STYLES.dateFields, ...(parsed.workshop?.dateFields || {}) },
+            courseName: { ...DEFAULT_TEXT_STYLES.courseName, ...(parsed.workshop?.courseName || {}) },
+            webinarName: { ...DEFAULT_TEXT_STYLES.webinarName, ...(parsed.workshop?.webinarName || {}) },
+            workshopName: { ...DEFAULT_TEXT_STYLES.workshopName, ...(parsed.workshop?.workshopName || {}) },
           },
         }
         setTextStyles(migrated)
@@ -406,7 +453,9 @@ export default function CertificateMappingPage() {
             })
 
             const autoInclude = []
+            if (type === 'course') autoInclude.push('course_name')
             if (type === 'webinar') autoInclude.push('host_name')
+            if (type === 'webinar') autoInclude.push('webinar_name')
             if (type === 'workshop') autoInclude.push('workshop_name')
 
             migratedData[type] = {
@@ -455,8 +504,14 @@ export default function CertificateMappingPage() {
 
       // Automatically include certain attributes in description
       const autoIncludeInDescription = []
+      if (type === 'course' && attrs.includes('course_name')) {
+        autoIncludeInDescription.push('course_name')
+      }
       if (type === 'webinar' && attrs.includes('host_name')) {
         autoIncludeInDescription.push('host_name')
+      }
+      if (type === 'webinar' && attrs.includes('webinar_name')) {
+        autoIncludeInDescription.push('webinar_name')
       }
       if (type === 'workshop' && attrs.includes('workshop_name')) {
         autoIncludeInDescription.push('workshop_name')
@@ -485,6 +540,11 @@ export default function CertificateMappingPage() {
       newData[certificateType].attributesInDescription = [...current, attr]
     } else if (!include && current.includes(attr)) {
       newData[certificateType].attributesInDescription = current.filter(a => a !== attr)
+      
+      // When moving attribute to draggable, ensure it has a position
+      if (!newData[certificateType].attributes[attr]) {
+        newData[certificateType].attributes[attr] = { x: 50, y: 55 }
+      }
     }
     
     saveMappingData(newData)
@@ -501,6 +561,7 @@ export default function CertificateMappingPage() {
     e: React.MouseEvent,
     elementType: "heading" | "heading2" | "descriptionTop" | "descriptionBody" | string
   ) => {
+    e.preventDefault() // Prevent text selection
     if (!canvasRef.current) return
 
     const rect = canvasRef.current.getBoundingClientRect()
@@ -525,10 +586,45 @@ export default function CertificateMappingPage() {
   useEffect(() => {
     if (!draggingElement || !canvasRef.current || !mappingData) return
 
+    const SNAP_THRESHOLD = 5 // pixels threshold for snapping
+
     const handleMouseMove = (e: MouseEvent) => {
       const rect = canvasRef.current!.getBoundingClientRect()
-      const x = ((e.clientX - rect.left - dragOffset.x) / rect.width) * 100
-      const y = ((e.clientY - rect.top - dragOffset.y) / rect.height) * 100
+      
+      // Calculate raw position (before snapping)
+      let x = ((e.clientX - rect.left - dragOffset.x) / rect.width) * 100
+      let y = ((e.clientY - rect.top - dragOffset.y) / rect.height) * 100
+
+      // Get canvas center
+      const centerX = 50 // 50% is horizontal center
+      const centerY = 50 // 50% is vertical center
+
+      // Calculate pixel difference from center
+      const pixelX = (x / 100) * rect.width
+      const pixelY = (y / 100) * rect.height
+      const centerPixelX = rect.width / 2
+      const centerPixelY = rect.height / 2
+
+      const distanceFromCenterX = Math.abs(pixelX - centerPixelX)
+      const distanceFromCenterY = Math.abs(pixelY - centerPixelY)
+
+      // Snap to vertical center (X = 50%)
+      let snappedToVertical = false
+      if (distanceFromCenterX <= SNAP_THRESHOLD) {
+        x = centerX
+        snappedToVertical = true
+      }
+
+      // Snap to horizontal center (Y = 50%)
+      let snappedToHorizontal = false
+      if (distanceFromCenterY <= SNAP_THRESHOLD) {
+        y = centerY
+        snappedToHorizontal = true
+      }
+
+      // Update guide line visibility
+      setShowVerticalGuide(snappedToVertical)
+      setShowHorizontalGuide(snappedToHorizontal)
 
       // Clamp values
       const clampedX = Math.max(0, Math.min(100, x))
@@ -555,6 +651,10 @@ export default function CertificateMappingPage() {
     }
 
     const handleMouseUp = () => {
+      // Hide guide lines
+      setShowVerticalGuide(false)
+      setShowHorizontalGuide(false)
+      
       if (mappingData) {
         sessionStorage.setItem(STORAGE_KEY, JSON.stringify(mappingData))
       }
@@ -686,6 +786,8 @@ export default function CertificateMappingPage() {
           toggleAttributeInDescription={toggleAttributeInDescription}
           textStyles={textStyles?.[certificateType] || DEFAULT_TEXT_STYLES}
           updateTextStyle={updateTextStyle}
+          showVerticalGuide={showVerticalGuide}
+          showHorizontalGuide={showHorizontalGuide}
         />
       )}
     </div>
@@ -787,6 +889,8 @@ function CustomMappingView({
   toggleAttributeInDescription,
   textStyles,
   updateTextStyle,
+  showVerticalGuide,
+  showHorizontalGuide,
 }: {
   templateUrl: string
   certificateType: CertificateType
@@ -799,6 +903,8 @@ function CustomMappingView({
   toggleAttributeInDescription: (attr: string, include: boolean) => void
   textStyles: TextStyles
   updateTextStyle: (block: keyof TextStyles, property: keyof TextStyle, value: string | number) => void
+  showVerticalGuide: boolean
+  showHorizontalGuide: boolean
 }) {
   if (!mappingData || !mappingData[certificateType]) return null
 
@@ -1239,6 +1345,202 @@ function CustomMappingView({
               </>
             )}
 
+            {/* Course/Webinar/Workshop Name Styles (only if draggable) */}
+            {certificateType === "course" && !attributesInDescription.includes("course_name") && attributes.includes("course_name") && (
+              <>
+                <div className="space-y-3">
+                  <h4 className="text-xs font-semibold text-foreground">Course Name</h4>
+                  
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1.5 block">Font Family</label>
+                    <select
+                      value={textStyles.courseName.fontFamily}
+                      onChange={(e) => updateTextStyle("courseName", "fontFamily", e.target.value)}
+                      className="w-full px-2 py-1.5 border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                      style={{ fontFamily: textStyles.courseName.fontFamily }}
+                    >
+                      {FONT_OPTIONS.courseName.map((font) => (
+                        <option key={font} value={font} style={{ fontFamily: font }}>
+                          {font}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1">
+                      <label className="text-xs text-muted-foreground mb-1.5 block">Font Size</label>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => updateTextStyle("courseName", "fontSize", Math.max(12, textStyles.courseName.fontSize - 1))}
+                          className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
+                        >
+                          −
+                        </button>
+                        <input
+                          type="number"
+                          min="12"
+                          max="36"
+                          value={textStyles.courseName.fontSize}
+                          onChange={(e) => updateTextStyle("courseName", "fontSize", Math.max(12, Math.min(36, parseInt(e.target.value) || 12)))}
+                          className="w-14 px-2 py-1 text-center border border-border rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                        <button
+                          onClick={() => updateTextStyle("courseName", "fontSize", Math.min(36, textStyles.courseName.fontSize + 1))}
+                          className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
+                        >
+                          +
+                        </button>
+                        <span className="text-xs text-muted-foreground ml-1">px</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1.5 block">Color</label>
+                      <input
+                        type="color"
+                        value={textStyles.courseName.color}
+                        onChange={(e) => updateTextStyle("courseName", "color", e.target.value)}
+                        className="w-12 h-7 border border-border rounded cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="border-t border-border"></div>
+              </>
+            )}
+
+            {certificateType === "webinar" && !attributesInDescription.includes("webinar_name") && attributes.includes("webinar_name") && (
+              <>
+                <div className="space-y-3">
+                  <h4 className="text-xs font-semibold text-foreground">Webinar Name</h4>
+                  
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1.5 block">Font Family</label>
+                    <select
+                      value={textStyles.webinarName.fontFamily}
+                      onChange={(e) => updateTextStyle("webinarName", "fontFamily", e.target.value)}
+                      className="w-full px-2 py-1.5 border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                      style={{ fontFamily: textStyles.webinarName.fontFamily }}
+                    >
+                      {FONT_OPTIONS.webinarName.map((font) => (
+                        <option key={font} value={font} style={{ fontFamily: font }}>
+                          {font}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1">
+                      <label className="text-xs text-muted-foreground mb-1.5 block">Font Size</label>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => updateTextStyle("webinarName", "fontSize", Math.max(12, textStyles.webinarName.fontSize - 1))}
+                          className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
+                        >
+                          −
+                        </button>
+                        <input
+                          type="number"
+                          min="12"
+                          max="36"
+                          value={textStyles.webinarName.fontSize}
+                          onChange={(e) => updateTextStyle("webinarName", "fontSize", Math.max(12, Math.min(36, parseInt(e.target.value) || 12)))}
+                          className="w-14 px-2 py-1 text-center border border-border rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                        <button
+                          onClick={() => updateTextStyle("webinarName", "fontSize", Math.min(36, textStyles.webinarName.fontSize + 1))}
+                          className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
+                        >
+                          +
+                        </button>
+                        <span className="text-xs text-muted-foreground ml-1">px</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1.5 block">Color</label>
+                      <input
+                        type="color"
+                        value={textStyles.webinarName.color}
+                        onChange={(e) => updateTextStyle("webinarName", "color", e.target.value)}
+                        className="w-12 h-7 border border-border rounded cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="border-t border-border"></div>
+              </>
+            )}
+
+            {certificateType === "workshop" && !attributesInDescription.includes("workshop_name") && attributes.includes("workshop_name") && (
+              <>
+                <div className="space-y-3">
+                  <h4 className="text-xs font-semibold text-foreground">Workshop Name</h4>
+                  
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1.5 block">Font Family</label>
+                    <select
+                      value={textStyles.workshopName.fontFamily}
+                      onChange={(e) => updateTextStyle("workshopName", "fontFamily", e.target.value)}
+                      className="w-full px-2 py-1.5 border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                      style={{ fontFamily: textStyles.workshopName.fontFamily }}
+                    >
+                      {FONT_OPTIONS.workshopName.map((font) => (
+                        <option key={font} value={font} style={{ fontFamily: font }}>
+                          {font}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1">
+                      <label className="text-xs text-muted-foreground mb-1.5 block">Font Size</label>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => updateTextStyle("workshopName", "fontSize", Math.max(12, textStyles.workshopName.fontSize - 1))}
+                          className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
+                        >
+                          −
+                        </button>
+                        <input
+                          type="number"
+                          min="12"
+                          max="36"
+                          value={textStyles.workshopName.fontSize}
+                          onChange={(e) => updateTextStyle("workshopName", "fontSize", Math.max(12, Math.min(36, parseInt(e.target.value) || 12)))}
+                          className="w-14 px-2 py-1 text-center border border-border rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                        <button
+                          onClick={() => updateTextStyle("workshopName", "fontSize", Math.min(36, textStyles.workshopName.fontSize + 1))}
+                          className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
+                        >
+                          +
+                        </button>
+                        <span className="text-xs text-muted-foreground ml-1">px</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1.5 block">Color</label>
+                      <input
+                        type="color"
+                        value={textStyles.workshopName.color}
+                        onChange={(e) => updateTextStyle("workshopName", "color", e.target.value)}
+                        className="w-12 h-7 border border-border rounded cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="border-t border-border"></div>
+              </>
+            )}
+
             {/* Description Body Styles */}
             <div className="space-y-3">
               <h4 className="text-xs font-semibold text-foreground">Description Body</h4>
@@ -1309,8 +1611,8 @@ function CustomMappingView({
 
           <div
             ref={canvasRef}
-            className="relative w-full aspect-[1.414/1] bg-muted rounded-lg overflow-hidden"
-            style={{ cursor: draggingElement ? "grabbing" : "default" }}
+            className="relative w-full aspect-[1.414/1] bg-muted rounded-lg overflow-hidden select-none"
+            style={{ cursor: draggingElement ? "grabbing" : "default", userSelect: "none" }}
           >
             <img
               src={templateUrl}
@@ -1318,23 +1620,39 @@ function CustomMappingView({
               className="w-full h-full object-contain pointer-events-none"
             />
 
+            {/* Center Guide Lines */}
+            {showVerticalGuide && (
+              <div
+                className="absolute top-0 bottom-0 w-[1px] bg-blue-500 pointer-events-none"
+                style={{ left: '50%', transform: 'translateX(-50%)', zIndex: 10 }}
+              />
+            )}
+            {showHorizontalGuide && (
+              <div
+                className="absolute left-0 right-0 h-[1px] bg-blue-500 pointer-events-none"
+                style={{ top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}
+              />
+            )}
+
             {/* Heading */}
             <div
-              className={`absolute transform -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing ${
+              className={`absolute transform -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing select-none ${
                 draggingElement === "heading" ? "opacity-70" : ""
               }`}
               style={{
                 left: `${currentMapping.heading.x}%`,
                 top: `${currentMapping.heading.y}%`,
+                userSelect: "none",
               }}
               onMouseDown={(e) => handleDragStart(e, "heading")}
             >
               <div 
-                className="text-center font-bold whitespace-nowrap px-2 py-1 hover:bg-primary/10 rounded transition-colors"
+                className="text-center font-bold whitespace-nowrap px-2 py-1 hover:bg-primary/10 rounded transition-colors select-none"
                 style={{
                   fontFamily: textStyles.heading.fontFamily,
                   fontSize: `${textStyles.heading.fontSize}px`,
                   color: textStyles.heading.color,
+                  userSelect: "none",
                 }}
               >
                 {currentMapping.heading.text.includes("<br>") 
@@ -1346,21 +1664,23 @@ function CustomMappingView({
             {/* Heading 2 (if exists) */}
             {currentMapping.heading.text.includes("<br>") && (
               <div
-                className={`absolute transform -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing ${
+                className={`absolute transform -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing select-none ${
                   draggingElement === "heading2" ? "opacity-70" : ""
                 }`}
                 style={{
                   left: `${currentMapping.attributes.heading2?.x || 50}%`,
                   top: `${currentMapping.attributes.heading2?.y || 26}%`,
+                  userSelect: "none",
                 }}
                 onMouseDown={(e) => handleDragStart(e, "heading2")}
               >
                 <div 
-                  className="text-center whitespace-nowrap px-2 py-1 hover:bg-primary/10 rounded transition-colors"
+                  className="text-center whitespace-nowrap px-2 py-1 hover:bg-primary/10 rounded transition-colors select-none"
                   style={{
                     fontFamily: textStyles.heading.fontFamily,
                     fontSize: `${textStyles.heading2.fontSize}px`,
                     color: textStyles.heading.color,
+                    userSelect: "none",
                   }}
                 >
                   {currentMapping.heading.text.split("<br>")[1] || ""}
@@ -1370,21 +1690,23 @@ function CustomMappingView({
 
             {/* Description Top */}
             <div
-              className={`absolute transform -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing ${
+              className={`absolute transform -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing select-none ${
                 draggingElement === "descriptionTop" ? "opacity-70" : ""
               }`}
               style={{
                 left: `${currentMapping.descriptionTop.x}%`,
                 top: `${currentMapping.descriptionTop.y}%`,
+                userSelect: "none",
               }}
               onMouseDown={(e) => handleDragStart(e, "descriptionTop")}
             >
               <div 
-                className="text-center px-2 py-1 hover:bg-primary/10 rounded transition-colors"
+                className="text-center px-2 py-1 hover:bg-primary/10 rounded transition-colors select-none"
                 style={{
                   fontFamily: textStyles.descriptionTop.fontFamily,
                   fontSize: `${textStyles.descriptionTop.fontSize}px`,
                   color: textStyles.descriptionTop.color,
+                  userSelect: "none",
                 }}
               >
                 {currentMapping.descriptionTop.text}
@@ -1402,24 +1724,46 @@ function CustomMappingView({
               // Date fields use date styling
               const isDateField = ["completion_date", "webinar_date", "workshop_date"].includes(attr)
               
+              // Course/Webinar/Workshop name styling
+              const isCourseName = attr === 'course_name'
+              const isWebinarName = attr === 'webinar_name'
+              const isWorkshopName = attr === 'workshop_name'
+              
               return (
                 <div
                   key={attr}
-                  className={`absolute transform -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing ${
+                  className={`absolute transform -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing select-none ${
                     draggingElement === attr ? "opacity-70" : ""
                   }`}
-                  style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+                  style={{ left: `${pos.x}%`, top: `${pos.y}%`, userSelect: "none" }}
                   onMouseDown={(e) => handleDragStart(e, attr)}
                 >
                   <div 
-                    className="text-center font-semibold px-3 py-1 hover:bg-primary/10 rounded transition-colors whitespace-nowrap"
+                    className="text-center font-semibold px-3 py-1 hover:bg-primary/10 rounded transition-colors whitespace-nowrap select-none"
                     style={isStudentName ? {
                       fontFamily: textStyles.studentName.fontFamily,
                       fontSize: `${textStyles.studentName.fontSize}px`,
                       color: textStyles.studentName.color,
+                      userSelect: "none",
+                    } : isCourseName ? {
+                      fontFamily: textStyles.courseName.fontFamily,
+                      fontSize: `${textStyles.courseName.fontSize}px`,
+                      color: textStyles.courseName.color,
+                      userSelect: "none",
+                    } : isWebinarName ? {
+                      fontFamily: textStyles.webinarName.fontFamily,
+                      fontSize: `${textStyles.webinarName.fontSize}px`,
+                      color: textStyles.webinarName.color,
+                      userSelect: "none",
+                    } : isWorkshopName ? {
+                      fontFamily: textStyles.workshopName.fontFamily,
+                      fontSize: `${textStyles.workshopName.fontSize}px`,
+                      color: textStyles.workshopName.color,
+                      userSelect: "none",
                     } : isDateField ? {
                       fontSize: `${textStyles.dateFields.fontSize}px`,
-                    } : undefined}
+                      userSelect: "none",
+                    } : { userSelect: "none" }}
                   >
                     {MOCK_DATA[attr]}
                   </div>
@@ -1429,21 +1773,23 @@ function CustomMappingView({
 
             {/* Description Body - supports <br> tags */}
             <div
-              className={`absolute transform -translate-x-1/2 -translate-y-1/2 max-w-[80%] cursor-grab active:cursor-grabbing ${
+              className={`absolute transform -translate-x-1/2 -translate-y-1/2 max-w-[80%] cursor-grab active:cursor-grabbing select-none ${
                 draggingElement === "descriptionBody" ? "opacity-70" : ""
               }`}
               style={{
                 left: `${currentMapping.descriptionBody.x}%`,
                 top: `${currentMapping.descriptionBody.y}%`,
+                userSelect: "none",
               }}
               onMouseDown={(e) => handleDragStart(e, "descriptionBody")}
             >
               <div 
-                className="text-center px-2 py-1 hover:bg-primary/10 rounded transition-colors"
+                className="text-center px-2 py-1 hover:bg-primary/10 rounded transition-colors select-none"
                 style={{
                   fontFamily: textStyles.descriptionBody.fontFamily,
                   fontSize: `${textStyles.descriptionBody.fontSize}px`,
                   color: textStyles.descriptionBody.color,
+                  userSelect: "none",
                 }}
                 dangerouslySetInnerHTML={{ 
                   __html: currentMapping.descriptionBody.text.replace(/<br>/gi, '<br/>') 

@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/lib/auth"
 import { useState, useEffect, useRef } from "react"
-import { getBaseCertificateTemplate } from "@/lib/api/certificates"
+import { getBaseCertificateTemplate, fetchCertificateAttributes } from "@/lib/api/certificates"
 import { Monitor, ChevronRight, User, BookOpen, Calendar, Video, UserCircle, Briefcase } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import Loader from "@/components/loader"
@@ -269,17 +269,30 @@ export default function CertificateMappingPage() {
     return () => window.removeEventListener("resize", checkDesktop)
   }, [])
 
-  // Load certificate attributes from sessionStorage
+  // Load certificate attributes from API
   useEffect(() => {
-    const storedAttributes = sessionStorage.getItem(ATTRIBUTES_STORAGE_KEY)
-    if (storedAttributes) {
+    const loadAttributes = async () => {
       try {
-        const parsed = JSON.parse(storedAttributes)
-        setCertificateAttributes(parsed)
+        const attributes = await fetchCertificateAttributes()
+        if (attributes) {
+          setCertificateAttributes(attributes)
+          sessionStorage.setItem(ATTRIBUTES_STORAGE_KEY, JSON.stringify(attributes))
+        }
       } catch (error) {
-        console.error("Failed to parse certificate attributes:", error)
+        console.error("Failed to fetch certificate attributes:", error)
+        // Fallback to sessionStorage if API fails
+        const storedAttributes = sessionStorage.getItem(ATTRIBUTES_STORAGE_KEY)
+        if (storedAttributes) {
+          try {
+            const parsed = JSON.parse(storedAttributes)
+            setCertificateAttributes(parsed)
+          } catch (parseError) {
+            console.error("Failed to parse stored certificate attributes:", parseError)
+          }
+        }
       }
     }
+    loadAttributes()
   }, [])
 
   // Load text styles from sessionStorage

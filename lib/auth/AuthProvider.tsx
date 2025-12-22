@@ -76,7 +76,7 @@ const checkAuth = async () => {
         }
         
         // If user navigates to any other route (not dashboard routes), logout
-        const allowedRoutes = ["/dashboard", "/settings", "/templates", "/billing", "/certificates", "/generate"]
+        const allowedRoutes = ["/dashboard", "/settings", "/templates", "/billing", "/certificates", "/generate", "/certificate-mapping"]
         const isAllowedRoute = allowedRoutes.some(route => pathname.startsWith(route))
         
         if (!isAllowedRoute && pathname !== "/") {

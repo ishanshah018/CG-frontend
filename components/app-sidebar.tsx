@@ -16,6 +16,7 @@ Briefcase,
 ChevronRight,
 ChevronUp,
 FilePlus,
+Map,
 } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { useAuth } from "@/lib/auth"
@@ -52,6 +53,11 @@ url: "/dashboard",
 title: "Base Template",
 icon: FileText,
 url: "/templates",
+},
+{
+title: "Certificate Mapping",
+icon: Map,
+url: "/certificate-mapping",
 },
 {
 title: "Generate Certificate",

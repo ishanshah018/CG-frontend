@@ -348,3 +348,75 @@ console.error("Failed to fetch certificate attributes:", error);
 throw error;
 }
 }
+
+/**
+ * Save certificate mapping
+ * Sends certificate mapping configuration to the server
+ */
+export async function saveCertificateMapping(): Promise<{ success: boolean; message: string }> {
+const token = sessionStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+
+if (!token) {
+throw new Error("No authentication token found");
+}
+
+// Get mapping data from sessionStorage
+const mappingData = sessionStorage.getItem("certificate_mapping");
+if (!mappingData) {
+throw new Error("No certificate mapping found in session");
+}
+
+const mappings = JSON.parse(mappingData);
+
+const response = await fetch(
+`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CERTIFICATES.MAPPING.SAVE}`,
+{
+method: "POST",
+headers: {
+"Authorization": `Bearer ${token}`,
+"Content-Type": "application/json",
+},
+body: JSON.stringify({ mappings }),
+}
+);
+
+const data = await response.json();
+
+if (!response.ok) {
+throw new Error(data.message || "Failed to save certificate mapping");
+}
+
+return data;
+}
+
+/**
+ * Get certificate mapping
+ * Fetches certificate mapping configuration from server
+ */
+export async function getCertificateMapping(): Promise<{ success: boolean; message?: string; data?: any }> {
+const token = sessionStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+
+if (!token) {
+throw new Error("No authentication token found");
+}
+
+const response = await fetch(
+`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CERTIFICATES.MAPPING.GET}`,
+{
+method: "GET",
+headers: {
+"Authorization": `Bearer ${token}`,
+"Content-Type": "application/json",
+},
+}
+);
+
+const data = await response.json();
+
+// If mapping found, store in sessionStorage
+if (data.success && data.data) {
+sessionStorage.setItem("certificate_mapping", JSON.stringify(data.data));
+}
+
+return data;
+}

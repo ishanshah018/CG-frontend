@@ -18,6 +18,10 @@ export const API_CONFIG = {
         BASE: "/api/certificates/templates/base",
         UPLOAD: "/api/certificates/templates/upload",
       },
+      MAPPING: {
+        SAVE: "/api/certificates/mapping/save",
+        GET: "/api/certificates/mapping",
+      },
     },
     // Add more endpoints as needed
     TEMPLATES: "/api/templates",

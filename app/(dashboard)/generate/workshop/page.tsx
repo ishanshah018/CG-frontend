@@ -1,30 +1,58 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { fetchCertificateAttributes, type CertificateAttributes } from "@/lib/api/certificates"
+import { useEffect, useState, useRef } from "react"
+import { useRouter } from "next/navigation"
+import { fetchCertificateAttributes, getCertificateMapping, type CertificateAttributes } from "@/lib/api/certificates"
 import Loader from "@/components/loader"
 
 export default function WorkshopPage() {
+  const router = useRouter()
   const [attributes, setAttributes] = useState<CertificateAttributes | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const hasLoadedRef = useRef(false)
 
   useEffect(() => {
-    const loadAttributes = async () => {
+    if (hasLoadedRef.current) return
+    hasLoadedRef.current = true
+    
+    const loadData = async () => {
       try {
         setIsLoading(true)
         setError(null)
+        
+        // Fetch certificate mapping first
+        const mappingResponse = await getCertificateMapping()
+        
+        if (!mappingResponse.success) {
+          // Show toaster with the error message
+          const toastEvent = new CustomEvent('showToast', {
+            detail: {
+              message: mappingResponse.message || 'Custom certificate mapping not found. Please configure mapping first.',
+              type: 'error'
+            }
+          })
+          window.dispatchEvent(toastEvent)
+          
+          // Redirect to certificate-mapping after a short delay
+          setTimeout(() => {
+            router.push('/certificate-mapping')
+          }, 700)
+          return
+        }
+        
+        // Fetch attributes
         const data = await fetchCertificateAttributes()
         setAttributes(data)
       } catch (err) {
-        console.error("Failed to load certificate attributes:", err)
-        setError(err instanceof Error ? err.message : "Failed to load attributes")
+        console.error("Failed to load data:", err)
+        setError(err instanceof Error ? err.message : "Failed to load data")
       } finally {
         setIsLoading(false)
       }
     }
 
-    loadAttributes()
+    loadData()
   }, [])
 
   if (isLoading) {

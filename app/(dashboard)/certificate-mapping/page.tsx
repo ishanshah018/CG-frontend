@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/lib/auth"
 import React, { useState, useEffect, useRef } from "react"
-import { getBaseCertificateTemplate, fetchCertificateAttributes } from "@/lib/api/certificates"
+import { getBaseCertificateTemplate, fetchCertificateAttributes, saveCertificateMapping } from "@/lib/api/certificates"
 import { Monitor, User, BookOpen, Calendar, Video, UserCircle, Briefcase } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import Loader from "@/components/loader"
@@ -56,11 +56,34 @@ const DESCRIPTION_BODY_TEMPLATES = {
   workshop: "For completing a workshop",
 }
 
-// Attribute-based description templates (for reference in generate page)
-const FULL_DESCRIPTION_BODY_TEMPLATES = {
-  course: "Has successfully completed the {course_name}",
-  webinar: "In recognition of participation in {webinar_name} hosted by {host_name}",
-  workshop: "For completing a {workshop_name} on {workshop_date}",
+// Helper function to generate description body template based on available attributes
+const getDescriptionBodyTemplate = (type: CertificateType, attrs: string[]) => {
+  if (type === 'course') {
+    return attrs.includes('course_name') 
+      ? "Has successfully completed the {course_name}"
+      : "Has successfully completed the"
+  } else if (type === 'webinar') {
+    const hasWebinarName = attrs.includes('webinar_name')
+    const hasHostName = attrs.includes('host_name')
+    
+    if (hasWebinarName && hasHostName) {
+      return "In recognition of participation in {webinar_name} hosted by {host_name}"
+    } else if (hasWebinarName) {
+      return "In recognition of participation in {webinar_name}"
+    }
+    return "In recognition of participation in"
+  } else if (type === 'workshop') {
+    const hasWorkshopName = attrs.includes('workshop_name')
+    const hasWorkshopDate = attrs.includes('workshop_date')
+    
+    if (hasWorkshopName && hasWorkshopDate) {
+      return "For completing a {workshop_name} on {workshop_date}"
+    } else if (hasWorkshopName) {
+      return "For completing a {workshop_name}"
+    }
+    return "For completing a workshop"
+  }
+  return ""
 }
 
 // Default positions for "Our Default Mapping" preview
@@ -348,7 +371,7 @@ export default function CertificateMappingPage() {
           // Check if old structure (has 'description' instead of 'descriptionTop' and 'descriptionBody')
           if (typeData && typeData.description && !typeData.descriptionTop) {
             const autoInclude = []
-            if (type === 'webinar') autoInclude.push('host_name')
+            if (type === 'webinar' && certificateAttributes[type].includes('host_name')) autoInclude.push('host_name')
             if (type === 'workshop') autoInclude.push('workshop_name')
 
             // Migrate old structure with inline styles
@@ -370,7 +393,7 @@ export default function CertificateMappingPage() {
                 style: { fontFamily: "Inter", fontSize: 14, color: "#4B5563" }
               },
               descriptionBody: {
-                text: FULL_DESCRIPTION_BODY_TEMPLATES[type],
+                text: getDescriptionBodyTemplate(type, certificateAttributes[type]),
                 x: 50,
                 y: 70,
                 style: { fontFamily: "Roboto", fontSize: 14, color: "#4B5563" }
@@ -381,7 +404,7 @@ export default function CertificateMappingPage() {
           } else if (typeData && typeData.descriptionTop && typeData.descriptionBody) {
             // New structure, ensure all blocks have inline styles
             let attrInDesc = typeData.attributesInDescription || []
-            if (type === 'webinar' && !attrInDesc.includes('host_name')) {
+            if (type === 'webinar' && !attrInDesc.includes('host_name') && certificateAttributes[type].includes('host_name')) {
               attrInDesc = [...attrInDesc, 'host_name']
             }
             if (type === 'workshop' && !attrInDesc.includes('workshop_name')) {
@@ -413,10 +436,12 @@ export default function CertificateMappingPage() {
                 typeData.descriptionTop,
                 { fontFamily: "Inter", fontSize: 14, color: "#4B5563" }
               ),
-              descriptionBody: ensureTextBlockStyle(
-                typeData.descriptionBody,
-                { fontFamily: "Roboto", fontSize: 14, color: "#4B5563" }
-              ),
+              descriptionBody: {
+                text: getDescriptionBodyTemplate(type, certificateAttributes[type]),
+                x: (typeData.descriptionBody as any)?.x ?? 50,
+                y: (typeData.descriptionBody as any)?.y ?? 70,
+                style: (typeData.descriptionBody as any)?.style || { fontFamily: "Roboto", fontSize: 14, color: "#4B5563" }
+              },
               attributes: migratedAttributes,
               attributesInDescription: attrInDesc,
             }
@@ -451,7 +476,7 @@ export default function CertificateMappingPage() {
 
             const autoInclude = []
             if (type === 'course') autoInclude.push('course_name')
-            if (type === 'webinar') autoInclude.push('host_name')
+            if (type === 'webinar' && certificateAttributes[type].includes('host_name')) autoInclude.push('host_name')
             if (type === 'webinar') autoInclude.push('webinar_name')
             if (type === 'workshop') autoInclude.push('workshop_name')
 
@@ -469,7 +494,7 @@ export default function CertificateMappingPage() {
                 style: { fontFamily: "Inter", fontSize: 14, color: "#4B5563" }
               },
               descriptionBody: {
-                text: FULL_DESCRIPTION_BODY_TEMPLATES[type],
+                text: getDescriptionBodyTemplate(type, certificateAttributes[type]),
                 x: 50,
                 y: 70,
                 style: { fontFamily: "Roboto", fontSize: 14, color: "#4B5563" }
@@ -576,7 +601,7 @@ export default function CertificateMappingPage() {
           }
         },
         descriptionBody: {
-          text: FULL_DESCRIPTION_BODY_TEMPLATES[type],
+          text: getDescriptionBodyTemplate(type, attrs),
           x: 50,
           y: 70,
           style: {
@@ -1109,6 +1134,25 @@ function CustomMappingView({
   const [saveSuccess, setSaveSuccess] = React.useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false)
 
+  // Reset save state when certificate type changes
+  React.useEffect(() => {
+    setSaveSuccess(false)
+    setHasUnsavedChanges(false)
+  }, [certificateType])
+
+  // Mark as having unsaved changes whenever mappingData changes
+  React.useEffect(() => {
+    const handleChange = () => {
+      setHasUnsavedChanges(true)
+      setSaveSuccess(false)
+    }
+    
+    // This runs when user makes any change to mappingData
+    if (mappingData) {
+      handleChange()
+    }
+  }, [mappingData])
+
   if (!mappingData || !mappingData[certificateType]) return null
 
   const currentMapping = mappingData[certificateType]
@@ -1156,22 +1200,55 @@ function CustomMappingView({
   // Check if all attributes are ready (green)
   const allAttributesReady = attributes.every(attr => isAttributeReady(attr))
 
-  // Mark as having unsaved changes whenever mappingData changes
-  React.useEffect(() => {
-    const handleChange = () => {
-      setHasUnsavedChanges(true)
-      setSaveSuccess(false)
+  // Handle save mapping
+  const handleSaveMapping = async () => {
+    if (!allAttributesReady || !hasUnsavedChanges) return
+    
+    // Validate description body - extract all {attribute} placeholders
+    const descriptionText = currentMapping.descriptionBody.text
+    const attributePlaceholders = descriptionText.match(/\{([^}]+)\}/g) || []
+    const attributesInText = attributePlaceholders.map(placeholder => placeholder.replace(/[{}]/g, ''))
+    
+    // Check if any attribute in description doesn't exist in available attributes
+    const invalidAttributes = attributesInText.filter(attr => !attributes.includes(attr))
+    
+    if (invalidAttributes.length > 0) {
+      const toastEvent = new CustomEvent('showToast', {
+        detail: {
+          message: `Invalid attribute(s) in description: {${invalidAttributes.join('}, {')}}. These attributes are not available for ${certificateType}.`,
+          type: 'error'
+        }
+      })
+      window.dispatchEvent(toastEvent)
+      return
     }
     
-    // This runs when user makes any change to mappingData
-    if (mappingData) {
-      handleChange()
+    // If this is workshop tab, call the API to save to backend
+    if (certificateType === 'workshop') {
+      try {
+        const response = await saveCertificateMapping()
+        if (response.success) {
+          // Show success toaster
+          const toastEvent = new CustomEvent('showToast', {
+            detail: {
+              message: response.message || 'Custom certificate mapping saved successfully',
+              type: 'success'
+            }
+          })
+          window.dispatchEvent(toastEvent)
+        }
+      } catch (error) {
+        console.error('Failed to save certificate mapping:', error)
+        const toastEvent = new CustomEvent('showToast', {
+          detail: {
+            message: error instanceof Error ? error.message : 'Failed to save certificate mapping',
+            type: 'error'
+          }
+        })
+        window.dispatchEvent(toastEvent)
+        return
+      }
     }
-  }, [mappingData])
-
-  // Handle save mapping
-  const handleSaveMapping = () => {
-    if (!allAttributesReady || !hasUnsavedChanges) return
     
     // Save to sessionStorage (already done automatically, but we show confirmation)
     setHasUnsavedChanges(false)
@@ -1912,6 +1989,19 @@ function CustomMappingView({
                 className="px-6 py-2.5 rounded-lg font-medium text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-lg flex items-center gap-2"
               >
                 <span>Next: {certificateType === 'course' ? 'Webinar' : 'Workshop'}</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            )}
+
+            {/* Generate Certificates Button - Only show after workshop mapping is saved */}
+            {saveSuccess && !hasUnsavedChanges && certificateType === 'workshop' && (
+              <button
+                onClick={() => window.location.href = '/generate/course'}
+                className="px-6 py-2.5 rounded-lg font-medium text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-lg flex items-center gap-2"
+              >
+                <span>Generate Certificates</span>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>

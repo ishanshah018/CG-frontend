@@ -6,6 +6,7 @@ import { Breadcrumb } from "@/components/breadcrumb"
 import { AuthProvider, useAuth } from "@/lib/auth"
 import { usePathname } from "next/navigation"
 import { MantineProvider } from "@mantine/core"
+import { Toaster } from "@/components/ui/toaster"
 import "@mantine/core/styles.css"
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
@@ -72,6 +73,7 @@ export default function DashboardLayout({
     <MantineProvider>
       <AuthProvider requireAuth={true}>
         <DashboardContent>{children}</DashboardContent>
+        <Toaster />
       </AuthProvider>
     </MantineProvider>
   )

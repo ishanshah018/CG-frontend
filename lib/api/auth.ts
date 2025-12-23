@@ -198,6 +198,10 @@ export function clearAuthData(): void {
     sessionStorage.removeItem(STORAGE_KEYS.USER);
     sessionStorage.removeItem(STORAGE_KEYS.ORGANIZATION);
     sessionStorage.removeItem(STORAGE_KEYS.PLAN);
+    
+    // Clear certificate-related data
+    sessionStorage.removeItem("certificate_mapping");
+    sessionStorage.removeItem(STORAGE_KEYS.CERTIFICATE_ATTRIBUTES);
   } catch (error) {
     console.error("Failed to clear auth data:", error);
   }

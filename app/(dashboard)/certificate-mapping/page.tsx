@@ -45,12 +45,19 @@ type MappingData = Record<CertificateType, CertificateMapping>
 const DEFAULT_HEADINGS = {
   course: "Certificate of Completion",
   webinar: "Certificate of Participation",
-  workshop: "Certificate of Workshop Completion",
+  workshop: "Certificate of<br>Workshop Completion",
 }
 
 const DEFAULT_DESCRIPTION_TOP = "This certificate is awarded to"
 
 const DESCRIPTION_BODY_TEMPLATES = {
+  course: "Has successfully completed the",
+  webinar: "In recognition of participation in",
+  workshop: "For completing a workshop",
+}
+
+// Attribute-based description templates (for reference in generate page)
+const FULL_DESCRIPTION_BODY_TEMPLATES = {
   course: "Has successfully completed the {course_name}",
   webinar: "In recognition of participation in {webinar_name} hosted by {host_name}",
   workshop: "For completing a {workshop_name} on {workshop_date}",
@@ -58,22 +65,36 @@ const DESCRIPTION_BODY_TEMPLATES = {
 
 // Default positions for "Our Default Mapping" preview
 const getDefaultPositions = (type: CertificateType, attributes: string[]) => {
-  const positions: Record<string, { x: number; y: number }> = {
-    heading: { x: 50, y: 20 },
-    heading2: { x: 50, y: 26 },
-    descriptionTop: { x: 50, y: 30 },
-    student_name: { x: 50, y: 40 },
-    descriptionBody: { x: 50, y: 70 },
-  }
+  const positions: Record<string, { x: number; y: number }> = {}
   
-  // Add remaining attributes
-  let yPos = 50
-  attributes.forEach((attr) => {
-    if (attr !== "student_name") {
-      positions[attr] = { x: 50, y: yPos }
-      yPos += 8
+  if (type === 'course') {
+    // Course: Heading, Description, Student Name, Description Body (with course_name), Date
+    positions.heading = { x: 50, y: 15 }
+    positions.descriptionTop = { x: 50, y: 28 }
+    positions.student_name = { x: 50, y: 38 }
+    positions.descriptionBody = { x: 50, y: 55 }
+    // Add completion_date if it exists - shown separately
+    if (attributes.includes('completion_date')) {
+      positions.completion_date = { x: 50, y: 70 }
     }
-  })
+  } else if (type === 'webinar') {
+    // Webinar: Heading, Description, Student Name, Description Body (with webinar_name + host_name), Date
+    positions.heading = { x: 50, y: 15 }
+    positions.descriptionTop = { x: 50, y: 28 }
+    positions.student_name = { x: 50, y: 38 }
+    positions.descriptionBody = { x: 50, y: 55 }
+    // Add webinar_date if it exists - shown separately
+    if (attributes.includes('webinar_date')) {
+      positions.webinar_date = { x: 50, y: 70 }
+    }
+  } else if (type === 'workshop') {
+    // Workshop: Heading, Description, Student Name, Description Body (includes workshop_name + workshop_date)
+    positions.heading = { x: 50, y: 20 }
+    positions.descriptionTop = { x: 50, y: 33 }
+    positions.student_name = { x: 50, y: 43 }
+    positions.descriptionBody = { x: 50, y: 60 }
+    // workshop_date is embedded in description body, not shown separately
+  }
   
   return positions
 }
@@ -152,7 +173,7 @@ export default function CertificateMappingPage() {
   const [certificateType, setCertificateType] = useState<CertificateType>("course")
   const [templateUrl, setTemplateUrl] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [mappingData, setMappingData] = useState<MappingData | null>(null)
+  const [mappingData, setMappingData] = useState<MappingData | null>(null) // Only used for custom mapping
   const [draggingElement, setDraggingElement] = useState<string | null>(null)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const canvasRef = useRef<HTMLDivElement>(null)
@@ -163,6 +184,7 @@ export default function CertificateMappingPage() {
   })
   const [showVerticalGuide, setShowVerticalGuide] = useState(false)
   const [showHorizontalGuide, setShowHorizontalGuide] = useState(false)
+  const [isCustomMappingLocked, setIsCustomMappingLocked] = useState(false)
 
   // Load Google Fonts
   useEffect(() => {
@@ -184,6 +206,19 @@ export default function CertificateMappingPage() {
     checkDesktop()
     window.addEventListener("resize", checkDesktop)
     return () => window.removeEventListener("resize", checkDesktop)
+  }, [])
+
+  // Check plan and lock custom mapping for free users
+  useEffect(() => {
+    try {
+      const planStr = sessionStorage.getItem('plan')
+      if (planStr) {
+        const plan = JSON.parse(planStr)
+        setIsCustomMappingLocked(plan.name === 'free')
+      }
+    } catch (error) {
+      console.error('Failed to check plan:', error)
+    }
   }, [])
 
   // Load certificate attributes from API
@@ -219,7 +254,7 @@ export default function CertificateMappingPage() {
     property: "fontFamily" | "fontSize" | "color",
     value: string | number
   ) => {
-    if (!mappingData) return
+    if (!mappingData || mainTab !== 'custom') return // Only allow in custom mode
     const newData = JSON.parse(JSON.stringify(mappingData)) as MappingData
     
     if (blockType === "attribute") {
@@ -294,8 +329,9 @@ export default function CertificateMappingPage() {
     }
   }
 
-  // Load mapping data from sessionStorage
+  // Load mapping data from sessionStorage ONLY for custom mapping
   useEffect(() => {
+    if (mainTab !== 'custom') return // Skip if in default mode
     if (certificateAttributes.course.length === 0) return // Wait for attributes to load
 
     const stored = sessionStorage.getItem(STORAGE_KEY)
@@ -334,7 +370,7 @@ export default function CertificateMappingPage() {
                 style: { fontFamily: "Inter", fontSize: 14, color: "#4B5563" }
               },
               descriptionBody: {
-                text: DESCRIPTION_BODY_TEMPLATES[type],
+                text: FULL_DESCRIPTION_BODY_TEMPLATES[type],
                 x: 50,
                 y: 70,
                 style: { fontFamily: "Roboto", fontSize: 14, color: "#4B5563" }
@@ -433,7 +469,7 @@ export default function CertificateMappingPage() {
                 style: { fontFamily: "Inter", fontSize: 14, color: "#4B5563" }
               },
               descriptionBody: {
-                text: DESCRIPTION_BODY_TEMPLATES[type],
+                text: FULL_DESCRIPTION_BODY_TEMPLATES[type],
                 x: 50,
                 y: 70,
                 style: { fontFamily: "Roboto", fontSize: 14, color: "#4B5563" }
@@ -456,7 +492,7 @@ export default function CertificateMappingPage() {
       initializeFreshData()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [certificateAttributes])
+  }, [certificateAttributes.course.length, certificateAttributes.webinar.length, certificateAttributes.workshop.length, mainTab])
 
   const initializeFreshData = () => {
     const initialData: MappingData = {} as MappingData
@@ -540,7 +576,7 @@ export default function CertificateMappingPage() {
           }
         },
         descriptionBody: {
-          text: DESCRIPTION_BODY_TEMPLATES[type],
+          text: FULL_DESCRIPTION_BODY_TEMPLATES[type],
           x: 50,
           y: 70,
           style: {
@@ -560,7 +596,7 @@ export default function CertificateMappingPage() {
 
   // Toggle attribute inclusion in description
   const toggleAttributeInDescription = (attr: string, include: boolean) => {
-    if (!mappingData) return
+    if (!mappingData || mainTab !== 'custom') return // Only allow in custom mode
     const newData = { ...mappingData }
     const current = newData[certificateType].attributesInDescription || []
     
@@ -586,8 +622,10 @@ export default function CertificateMappingPage() {
     saveMappingData(newData)
   }
 
-  // Save mapping data to sessionStorage
+  // Save mapping data to sessionStorage (only for custom mapping)
   const saveMappingData = (data: MappingData) => {
+    if (mainTab !== 'custom') return // Don't save in default mode
+    if (isCustomMappingLocked) return // Don't save if feature is locked
     setMappingData(data)
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data))
   }
@@ -597,6 +635,7 @@ export default function CertificateMappingPage() {
     e: React.MouseEvent,
     elementType: "heading" | "heading2" | "descriptionTop" | "descriptionBody" | string
   ) => {
+    if (mainTab !== 'custom') return // Only allow dragging in custom mode
     e.preventDefault() // Prevent text selection
     if (!canvasRef.current) return
 
@@ -741,7 +780,11 @@ export default function CertificateMappingPage() {
   }
 
   if (isLoading) {
-    return <Loader />
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader size="large" />
+      </div>
+    )
   }
 
   if (!templateUrl) {
@@ -779,16 +822,32 @@ export default function CertificateMappingPage() {
           >
             Our Default Mapping
           </button>
-          <button
-            onClick={() => setMainTab("custom")}
-            className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
-              mainTab === "custom"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Custom Mapping
-          </button>
+          <div className="relative group">
+            <button
+              onClick={() => !isCustomMappingLocked && setMainTab("custom")}
+              disabled={isCustomMappingLocked}
+              className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
+                mainTab === "custom"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              } ${isCustomMappingLocked ? "opacity-50 cursor-not-allowed" : ""}`}
+            >
+              Custom Mapping
+              {isCustomMappingLocked && (
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                </svg>
+              )}
+            </button>
+            {isCustomMappingLocked && (
+              <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 hidden group-hover:block z-50">
+                <div className="bg-popover text-popover-foreground text-xs rounded-md py-2 px-3 shadow-md border border-border whitespace-nowrap">
+                  <p className="font-medium">🔒 Premium Feature</p>
+                  <p className="text-muted-foreground mt-0.5">Upgrade to unlock</p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -820,6 +879,7 @@ export default function CertificateMappingPage() {
         <CustomMappingView
           templateUrl={templateUrl}
           certificateType={certificateType}
+          setCertificateType={setCertificateType}
           mappingData={mappingData}
           attributes={certificateAttributes[certificateType]}
           updateText={updateText}
@@ -848,12 +908,96 @@ function DefaultMappingView({
 }) {
   const positions = getDefaultPositions(certificateType, attributes)
 
+  // Professional font styles for each element
+  const styles = {
+    heading: {
+      fontFamily: 'Playfair Display',
+      fontSize: '40px',
+      fontWeight: '700',
+      color: '#1a1a1a',
+      letterSpacing: '1px'
+    },
+    descriptionTop: {
+      fontFamily: 'Inter',
+      fontSize: '16px',
+      fontWeight: '400',
+      color: '#4a5568',
+      letterSpacing: '0.5px'
+    },
+    studentName: {
+      fontFamily: 'Great Vibes',
+      fontSize: '48px',
+      fontWeight: '400',
+      color: '#2d3748',
+      letterSpacing: '1px'
+    },
+    descriptionBody: {
+      fontFamily: 'Roboto',
+      fontSize: '18px',
+      fontWeight: '400',
+      color: '#4a5568',
+      lineHeight: '1.6'
+    },
+    date: {
+      fontFamily: 'Inter',
+      fontSize: '16px',
+      fontWeight: '500',
+      color: '#2d3748',
+      letterSpacing: '0.5px'
+    }
+  }
+
+  // Get the date attribute based on certificate type
+  const getDateAttribute = () => {
+    if (certificateType === 'course' && attributes.includes('completion_date')) {
+      return 'completion_date'
+    } else if (certificateType === 'webinar' && attributes.includes('webinar_date')) {
+      return 'webinar_date'
+    } else if (certificateType === 'workshop' && attributes.includes('workshop_date')) {
+      return 'workshop_date'
+    }
+    return null
+  }
+
+  const dateAttribute = getDateAttribute()
+
+  // Get complete description body with interpolated values (only for attributes that exist in session)
+  const getDescriptionBodyText = () => {
+    if (certificateType === 'course') {
+      if (attributes.includes('course_name')) {
+        return `Has successfully completed the ${MOCK_DATA.course_name}`
+      }
+      return 'Has successfully completed the'
+    } else if (certificateType === 'webinar') {
+      const hasWebinarName = attributes.includes('webinar_name')
+      const hasHostName = attributes.includes('host_name')
+      
+      if (hasWebinarName && hasHostName) {
+        return `In recognition of participation in ${MOCK_DATA.webinar_name} hosted by ${MOCK_DATA.host_name}`
+      } else if (hasWebinarName) {
+        return `In recognition of participation in ${MOCK_DATA.webinar_name}`
+      }
+      return 'In recognition of participation in'
+    } else if (certificateType === 'workshop') {
+      const hasWorkshopName = attributes.includes('workshop_name')
+      const hasWorkshopDate = attributes.includes('workshop_date')
+      
+      if (hasWorkshopName && hasWorkshopDate) {
+        return `For completing a ${MOCK_DATA.workshop_name} on ${MOCK_DATA.workshop_date}`
+      } else if (hasWorkshopName) {
+        return `For completing a ${MOCK_DATA.workshop_name}`
+      }
+      return 'For completing a workshop'
+    }
+    return ''
+  }
+
   return (
     <div className="bg-card border border-border rounded-lg p-8">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold">Preview</h3>
+        <h3 className="text-lg font-semibold">Preview - Our Default Mapping</h3>
         <Badge variant="outline" className="text-xs">
-          System Defined Layout
+          System Defined Layout • Professional Fonts
         </Badge>
       </div>
 
@@ -865,54 +1009,68 @@ function DefaultMappingView({
         />
 
         {/* Heading */}
-        <div
-          className="absolute transform -translate-x-1/2 -translate-y-1/2"
-          style={{ left: `${positions.heading.x}%`, top: `${positions.heading.y}%` }}
-        >
-          <div className="text-center font-bold text-2xl text-gray-800 whitespace-nowrap">
-            {DEFAULT_HEADINGS[certificateType]}
+        {positions.heading && (
+          <div
+            className="absolute transform -translate-x-1/2 -translate-y-1/2"
+            style={{ left: `${positions.heading.x}%`, top: `${positions.heading.y}%` }}
+          >
+            <div 
+              className="text-center whitespace-nowrap" 
+              style={styles.heading}
+              dangerouslySetInnerHTML={{ 
+                __html: DEFAULT_HEADINGS[certificateType].replace(/<br>/gi, '<br/>') 
+              }}
+            />
           </div>
-        </div>
+        )}
 
         {/* Description Top */}
-        <div
-          className="absolute transform -translate-x-1/2 -translate-y-1/2"
-          style={{ left: `${positions.descriptionTop.x}%`, top: `${positions.descriptionTop.y}%` }}
-        >
-          <div className="text-center text-sm text-gray-600">
-            {DEFAULT_DESCRIPTION_TOP}
-          </div>
-        </div>
-
-        {/* All Attributes */}
-        {attributes.map((attr) => {
-          const pos = positions[attr]
-          if (!pos) return null
-          return (
-            <div
-              key={attr}
-              className="absolute transform -translate-x-1/2 -translate-y-1/2"
-              style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
-            >
-              <div className="text-center font-semibold text-lg text-gray-900">
-                {MOCK_DATA[attr]}
-              </div>
+        {positions.descriptionTop && (
+          <div
+            className="absolute transform -translate-x-1/2 -translate-y-1/2"
+            style={{ left: `${positions.descriptionTop.x}%`, top: `${positions.descriptionTop.y}%` }}
+          >
+            <div className="text-center" style={styles.descriptionTop}>
+              {DEFAULT_DESCRIPTION_TOP}
             </div>
-          )
-        })}
+          </div>
+        )}
 
-        {/* Description Body - supports <br> tags */}
-        <div
-          className="absolute transform -translate-x-1/2 -translate-y-1/2 max-w-[80%]"
-          style={{ left: `${positions.descriptionBody.x}%`, top: `${positions.descriptionBody.y}%` }}
-        >
-          <div 
-            className="text-center text-sm text-gray-600"
-            dangerouslySetInnerHTML={{ 
-              __html: DESCRIPTION_BODY_TEMPLATES[certificateType].replace(/<br>/gi, '<br/>') 
-            }}
-          />
-        </div>
+        {/* Student Name */}
+        {positions.student_name && attributes.includes('student_name') && (
+          <div
+            className="absolute transform -translate-x-1/2 -translate-y-1/2"
+            style={{ left: `${positions.student_name.x}%`, top: `${positions.student_name.y}%` }}
+          >
+            <div className="text-center" style={styles.studentName}>
+              {MOCK_DATA.student_name}
+            </div>
+          </div>
+        )}
+
+        {/* Description Body - with embedded attribute values */}
+        {positions.descriptionBody && (
+          <div
+            className="absolute transform -translate-x-1/2 -translate-y-1/2 max-w-[80%]"
+            style={{ left: `${positions.descriptionBody.x}%`, top: `${positions.descriptionBody.y}%` }}
+          >
+            <div className="text-center" style={styles.descriptionBody}>
+              {getDescriptionBodyText()}
+            </div>
+          </div>
+        )}
+
+        {/* Date - only show if NOT already in description body */}
+        {dateAttribute && positions[dateAttribute] && certificateType !== 'workshop' && (
+          <div
+            className="absolute transform -translate-x-1/2 -translate-y-1/2"
+            style={{ left: `${positions[dateAttribute].x}%`, top: `${positions[dateAttribute].y}%` }}
+          >
+            <div className="text-center" style={styles.date}>
+              {MOCK_DATA[dateAttribute]}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -922,6 +1080,7 @@ function DefaultMappingView({
 function CustomMappingView({
   templateUrl,
   certificateType,
+  setCertificateType,
   mappingData,
   attributes,
   updateText,
@@ -935,6 +1094,7 @@ function CustomMappingView({
 }: {
   templateUrl: string
   certificateType: CertificateType
+  setCertificateType: (type: CertificateType) => void
   mappingData: MappingData | null
   attributes: string[]
   updateText: (field: "heading" | "descriptionTop" | "descriptionBody", text: string) => void
@@ -946,6 +1106,9 @@ function CustomMappingView({
   showVerticalGuide: boolean
   showHorizontalGuide: boolean
 }) {
+  const [saveSuccess, setSaveSuccess] = React.useState(false)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false)
+
   if (!mappingData || !mappingData[certificateType]) return null
 
   const currentMapping = mappingData[certificateType]
@@ -988,6 +1151,31 @@ function CustomMappingView({
       // If checkbox is unchecked, it's draggable and always ready
       return true
     }
+  }
+
+  // Check if all attributes are ready (green)
+  const allAttributesReady = attributes.every(attr => isAttributeReady(attr))
+
+  // Mark as having unsaved changes whenever mappingData changes
+  React.useEffect(() => {
+    const handleChange = () => {
+      setHasUnsavedChanges(true)
+      setSaveSuccess(false)
+    }
+    
+    // This runs when user makes any change to mappingData
+    if (mappingData) {
+      handleChange()
+    }
+  }, [mappingData])
+
+  // Handle save mapping
+  const handleSaveMapping = () => {
+    if (!allAttributesReady || !hasUnsavedChanges) return
+    
+    // Save to sessionStorage (already done automatically, but we show confirmation)
+    setHasUnsavedChanges(false)
+    setSaveSuccess(true)
   }
 
   return (
@@ -1673,6 +1861,62 @@ function CustomMappingView({
                 }}
               />
             </div>
+          </div>
+        </div>
+
+        {/* Save Button - Outside preview, bottom right */}
+        <div className="flex justify-end mt-4">
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col items-end">
+              <button
+                onClick={handleSaveMapping}
+                disabled={!allAttributesReady || (!hasUnsavedChanges && saveSuccess)}
+                className={`px-6 py-2.5 rounded-lg font-medium text-sm transition-all shadow-lg ${
+                  saveSuccess && !hasUnsavedChanges
+                    ? "bg-green-600 text-white cursor-default"
+                    : allAttributesReady && hasUnsavedChanges
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
+                    : "bg-muted text-muted-foreground cursor-not-allowed opacity-60"
+                }`}
+              >
+                {saveSuccess && !hasUnsavedChanges ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Saved!
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                    </svg>
+                    Save Mapping
+                  </span>
+                )}
+              </button>
+              {!allAttributesReady && (
+                <p className="text-xs text-orange-600 mt-2">
+                  Configure all attributes (green) to save
+                </p>
+              )}
+            </div>
+            
+            {/* Next Step Button - Only show when saved and not on workshop */}
+            {saveSuccess && !hasUnsavedChanges && certificateType !== 'workshop' && (
+              <button
+                onClick={() => {
+                  const nextType = certificateType === 'course' ? 'webinar' : 'workshop'
+                  setCertificateType(nextType)
+                }}
+                className="px-6 py-2.5 rounded-lg font-medium text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-lg flex items-center gap-2"
+              >
+                <span>Next: {certificateType === 'course' ? 'Webinar' : 'Workshop'}</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
       </div>

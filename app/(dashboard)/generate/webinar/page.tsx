@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { fetchCertificateAttributes, getCertificateMapping, type CertificateAttributes } from "@/lib/api/certificates"
+import { fetchCertificateAttributes, getCertificateMapping, getBaseCertificateTemplate, type CertificateAttributes } from "@/lib/api/certificates"
 import Loader from "@/components/loader"
 
 export default function WebinarPage() {
@@ -21,14 +21,34 @@ export default function WebinarPage() {
         setIsLoading(true)
         setError(null)
         
-        // Fetch certificate mapping first
+        // Step 1: Check if base certificate exists
+        const baseCertResponse = await getBaseCertificateTemplate()
+        
+        if (!baseCertResponse.success || !baseCertResponse.data) {
+          // Show toaster for missing base certificate
+          const toastEvent = new CustomEvent('showToast', {
+            detail: {
+              message: 'You have to upload base certificate first',
+              type: 'error'
+            }
+          })
+          window.dispatchEvent(toastEvent)
+          
+          // Redirect to templates page after a short delay
+          setTimeout(() => {
+            router.push('/templates')
+          }, 1500)
+          return
+        }
+        
+        // Step 2: Check if certificate mapping exists
         const mappingResponse = await getCertificateMapping()
         
         if (!mappingResponse.success) {
-          // Show toaster with the error message
+          // Show toaster for missing mapping
           const toastEvent = new CustomEvent('showToast', {
             detail: {
-              message: mappingResponse.message || 'Custom certificate mapping not found. Please configure mapping first.',
+              message: 'No mappings found. Please configure certificate mapping first.',
               type: 'error'
             }
           })
@@ -37,7 +57,7 @@ export default function WebinarPage() {
           // Redirect to certificate-mapping after a short delay
           setTimeout(() => {
             router.push('/certificate-mapping')
-          }, 700)
+          }, 1500)
           return
         }
         

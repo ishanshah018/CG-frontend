@@ -120,8 +120,8 @@ React.useEffect(() => {
 }, [pathname])
 
 return (
-<Sidebar className="border-r border-white/10 bg-surface-sidebar **:font-heading md:border-border">
-    <SidebarHeader className="border-b border-white/10 p-3 md:p-4">
+<Sidebar className="border-r border-white/10 **:font-heading md:border-border [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" style={{ backgroundColor: '#101213' }}>
+    <SidebarHeader className="border-b border-white/10 p-3 md:p-4" style={{ backgroundColor: '#101213' }}>
     <div className="flex items-center gap-2">
         <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-lg bg-brand-primary">
         <Award className="h-5 w-5 md:h-6 md:w-6 text-white" />
@@ -133,7 +133,7 @@ return (
     </div>
     </SidebarHeader>
 
-    <SidebarContent className="px-2 py-3 md:py-4 bg-surface-sidebar">
+    <SidebarContent className="px-2 py-3 md:py-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" style={{ backgroundColor: '#101213' }}>
     <SidebarGroup>
         <SidebarGroupContent>
         <SidebarMenu className="gap-3 md:gap-4">
@@ -150,10 +150,10 @@ return (
                     onClick={() =>
                         setOpenSubmenu(isSubmenuOpen ? null : item.title)
                     }
-                    className="h-12.5 text-base font-medium tracking-[0.3px] leading-none text-white/80 hover:scale-[1.02] transition-transform rounded-md"
+                    className="h-12.5 text-[17px] font-medium tracking-[0.3px] leading-none text-white/80 hover:scale-[1.01] transition-transform rounded-2xl"
                     >
                     <item.icon className="h-4 w-4 md:h-5 md:w-5" />
-                    <span className="whitespace-nowrap">{item.title}</span>
+                    <span className="whitespace-nowrap text-[17px]">{item.title}</span>
                     <ChevronRight
                         className={`ml-auto h-3 w-3 md:h-4 md:w-4 transition-transform ${
                         isSubmenuOpen ? "rotate-90" : ""
@@ -172,15 +172,16 @@ return (
                             <SidebarMenuSubItem key={subItem.title}>
                             <SidebarMenuSubButton
                                 asChild
-                                className={`h-12.5 text-base font-medium tracking-[0.3px] leading-none text-white/70 hover:scale-[1.02] transition-transform rounded-md ${
+                                className={`h-12.5 text-[17px] font-medium tracking-[0.3px] leading-none text-white/70 hover:scale-[1.01] transition-transform rounded-2xl ${
                                 isSubActive
-                                    ? "bg-brand-primary text-white"
+                                    ? "bg-brand-primary font-semibold"
                                     : ""
                                 }`}
+                                style={isSubActive ? { color: '#101213' } : {}}
                             >
                                 <Link href={subItem.url} onClick={handleMobileClick}>
                                 <subItem.icon className="h-3 w-3 md:h-4 md:w-4" />
-                                <span>{subItem.title}</span>
+                                <span className="text-[17px]">{subItem.title}</span>
                                 </Link>
                             </SidebarMenuSubButton>
                             </SidebarMenuSubItem>
@@ -196,13 +197,14 @@ return (
                 <SidebarMenuItem key={item.title}>
                 <SidebarMenuButton
                     asChild
-                    className={`h-12.5 text-base font-medium tracking-[0.3px] leading-none text-white/80 hover:scale-[1.02] transition-transform rounded-md ${
-                    isActive ? "bg-brand-primary text-white" : ""
+                    className={`h-12.5 text-[17px] font-medium tracking-[0.3px] leading-none text-white/80 hover:scale-[1.01] transition-transform rounded-2xl ${
+                    isActive ? "bg-brand-primary font-semibold" : ""
                     }`}
+                    style={isActive ? { color: '#101213' } : {}}
                 >
                     <Link href={item.url || "/"} onClick={handleMobileClick}>
                     <item.icon className="h-4 w-4 md:h-5 md:w-5" />
-                    <span>{item.title}</span>
+                    <span className="text-[17px]">{item.title}</span>
                     </Link>
                 </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -213,7 +215,7 @@ return (
     </SidebarGroup>
     </SidebarContent>
 
-    <SidebarFooter className="border-t border-white/10 p-1.5 md:p-2 bg-surface-sidebar">
+    <SidebarFooter className="border-t border-white/10 p-1.5 md:p-2" style={{ backgroundColor: '#101213' }}>
     <SidebarMenu>
         <SidebarMenuItem>
         <DropdownMenu onOpenChange={setIsProfileOpen}>

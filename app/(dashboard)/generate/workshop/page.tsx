@@ -10,6 +10,7 @@ export default function WorkshopPage() {
   const [attributes, setAttributes] = useState<CertificateAttributes | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [redirectMessage, setRedirectMessage] = useState<string | null>(null)
   const hasLoadedRef = useRef(false)
 
   useEffect(() => {
@@ -25,6 +26,10 @@ export default function WorkshopPage() {
         const baseCertResponse = await getBaseCertificateTemplate()
         
         if (!baseCertResponse.success || !baseCertResponse.data) {
+          // Show message in page content
+          setRedirectMessage('Template Not Found')
+          setIsLoading(false)
+          
           // Show toaster for missing base certificate
           const toastEvent = new CustomEvent('showToast', {
             detail: {
@@ -45,6 +50,10 @@ export default function WorkshopPage() {
         const mappingResponse = await getCertificateMapping()
         
         if (!mappingResponse.success) {
+          // Show message in page content
+          setRedirectMessage('Mapping Not Found')
+          setIsLoading(false)
+          
           // Show toaster for missing mapping
           const toastEvent = new CustomEvent('showToast', {
             detail: {
@@ -79,6 +88,17 @@ export default function WorkshopPage() {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Loader size="large" />
+      </div>
+    )
+  }
+
+  if (redirectMessage) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <h2 className="text-2xl font-semibold text-foreground">{redirectMessage}</h2>
+          <p className="text-sm text-muted-foreground mt-2">Redirecting...</p>
+        </div>
       </div>
     )
   }

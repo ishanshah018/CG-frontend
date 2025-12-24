@@ -292,9 +292,7 @@ export default function TemplatesPage() {
     
     // Redirect after a brief delay to show completion
     setTimeout(() => {
-      const typeWithSelections = Object.entries(allSelections).find(([_, selections]) => selections.length > 0)
-      const redirectType = typeWithSelections ? typeWithSelections[0] : "course"
-      router.push(`/generate/${redirectType}`)
+      router.push('/certificate-mapping')
     }, 500)
   }
 
@@ -812,15 +810,14 @@ export default function TemplatesPage() {
                 <CheckCircle2 className="w-8 h-8 text-green-600" />
               </div>
               
-              <h2 className="text-xl font-medium mb-2">Ready to Generate Certificates!</h2>
-              <p className="text-muted-foreground mb-6">
-                Your base template is set up and ready. You can now start generating certificates
-                for your students.
+              <h2 className="text-xl font-semibold mb-3">Move to Certificate Mappings</h2>
+              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                Your base template is set up and ready! Now configure your certificate mappings to define how data appears on your certificates.
               </p>
 
-              <Button size="lg" onClick={handleGenerateRedirect} className="w-full md:w-auto">
-                <span className="hidden sm:inline">Continue to Generate Certificates</span>
-                <span className="sm:hidden">Generate Certificates</span>
+              <Button size="lg" onClick={handleGenerateRedirect} className="w-full md:w-auto bg-brand-primary hover:bg-brand-primary-hover text-white">
+                <span className="hidden sm:inline">Continue to Certificate Mappings</span>
+                <span className="sm:hidden">Setup Mappings</span>
                 <ChevronRight className="w-5 h-5 ml-2" />
               </Button>
             </div>

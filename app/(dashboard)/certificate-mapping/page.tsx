@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/lib/auth"
 import React, { useState, useEffect, useRef } from "react"
+import { useRouter } from "next/navigation"
 import { getBaseCertificateTemplate, fetchCertificateAttributes, saveCertificateMapping } from "@/lib/api/certificates"
 import { Monitor, User, BookOpen, Calendar, Video, UserCircle, Briefcase } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -191,11 +192,14 @@ const FONT_OPTIONS = {
 
 export default function CertificateMappingPage() {
   useAuth() // Required for authentication context
+  const router = useRouter()
+  const hasLoadedTemplateRef = useRef(false)
   const [isDesktop, setIsDesktop] = useState(true)
   const [mainTab, setMainTab] = useState<MainTab>("default")
   const [certificateType, setCertificateType] = useState<CertificateType>("course")
   const [templateUrl, setTemplateUrl] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [redirectMessage, setRedirectMessage] = useState<string | null>(null)
   const [mappingData, setMappingData] = useState<MappingData | null>(null) // Only used for custom mapping
   const [draggingElement, setDraggingElement] = useState<string | null>(null)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
@@ -309,12 +313,33 @@ export default function CertificateMappingPage() {
 
   // Load base certificate template
   useEffect(() => {
+    if (hasLoadedTemplateRef.current) return
+    hasLoadedTemplateRef.current = true
+    
     const loadTemplate = async () => {
       try {
         const response = await getBaseCertificateTemplate()
-        if (response.success && response.data?.template_url) {
-          setTemplateUrl(response.data.template_url)
+        if (!response.success || !response.data?.template_url) {
+          // Show message in page content
+          setRedirectMessage('No Base Template Found')
+          setIsLoading(false)
+          
+          // Show toaster for missing base certificate
+          const toastEvent = new CustomEvent('showToast', {
+            detail: {
+              message: 'You have to upload base certificate first',
+              type: 'error'
+            }
+          })
+          window.dispatchEvent(toastEvent)
+          
+          // Redirect to templates page after a short delay
+          setTimeout(() => {
+            router.push('/templates')
+          }, 1500)
+          return
         }
+        setTemplateUrl(response.data.template_url)
       } catch (error) {
         console.error("Failed to load base certificate:", error)
       } finally {
@@ -808,6 +833,17 @@ export default function CertificateMappingPage() {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Loader size="large" />
+      </div>
+    )
+  }
+
+  if (redirectMessage) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <h2 className="text-2xl font-semibold text-foreground">{redirectMessage}</h2>
+          <p className="text-sm text-muted-foreground mt-2">Redirecting...</p>
+        </div>
       </div>
     )
   }

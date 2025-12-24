@@ -336,12 +336,14 @@ if (!response.ok) {
 throw new Error(data.message || "Failed to fetch certificate attributes");
 }
 
-if (data.success && data.data) {
+// Backend returns false when no base template is uploaded
+if (data.success && data.data && data.data !== false) {
 // Store in sessionStorage
 storeCertificateAttributes(data.data);
 return data.data;
 }
 
+// Return null when data is false or not present (no base template)
 return null;
 } catch (error) {
 console.error("Failed to fetch certificate attributes:", error);

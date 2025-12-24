@@ -253,9 +253,23 @@ export default function CertificateMappingPage() {
     const loadAttributes = async () => {
       try {
         const attributes = await fetchCertificateAttributes()
-        if (attributes) {
-          setCertificateAttributes(attributes)
-          sessionStorage.setItem(ATTRIBUTES_STORAGE_KEY, JSON.stringify(attributes))
+        if (attributes && typeof attributes === 'object') {
+          // Ensure all certificate types have arrays
+          const validatedAttributes = {
+            course: Array.isArray(attributes.course) ? attributes.course : [],
+            webinar: Array.isArray(attributes.webinar) ? attributes.webinar : [],
+            workshop: Array.isArray(attributes.workshop) ? attributes.workshop : [],
+          }
+          setCertificateAttributes(validatedAttributes)
+          sessionStorage.setItem(ATTRIBUTES_STORAGE_KEY, JSON.stringify(validatedAttributes))
+        } else {
+          // No attributes found (no base template), set empty arrays
+          const emptyAttributes = {
+            course: [],
+            webinar: [],
+            workshop: [],
+          }
+          setCertificateAttributes(emptyAttributes)
         }
       } catch (error) {
         console.error("Failed to fetch certificate attributes:", error)
@@ -264,10 +278,28 @@ export default function CertificateMappingPage() {
         if (storedAttributes) {
           try {
             const parsed = JSON.parse(storedAttributes)
-            setCertificateAttributes(parsed)
+            const validatedAttributes = {
+              course: Array.isArray(parsed.course) ? parsed.course : [],
+              webinar: Array.isArray(parsed.webinar) ? parsed.webinar : [],
+              workshop: Array.isArray(parsed.workshop) ? parsed.workshop : [],
+            }
+            setCertificateAttributes(validatedAttributes)
           } catch (parseError) {
             console.error("Failed to parse stored certificate attributes:", parseError)
+            // Set empty arrays on parse error
+            setCertificateAttributes({
+              course: [],
+              webinar: [],
+              workshop: [],
+            })
           }
+        } else {
+          // No stored attributes, set empty arrays
+          setCertificateAttributes({
+            course: [],
+            webinar: [],
+            workshop: [],
+          })
         }
       }
     }
@@ -501,7 +533,7 @@ export default function CertificateMappingPage() {
 
             const autoInclude = []
             if (type === 'course') autoInclude.push('course_name')
-            if (type === 'webinar' && certificateAttributes[type].includes('host_name')) autoInclude.push('host_name')
+            if (type === 'webinar' && certificateAttributes?.[type]?.includes('host_name')) autoInclude.push('host_name')
             if (type === 'webinar') autoInclude.push('webinar_name')
             if (type === 'workshop') autoInclude.push('workshop_name')
 
@@ -542,13 +574,13 @@ export default function CertificateMappingPage() {
       initializeFreshData()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [certificateAttributes.course.length, certificateAttributes.webinar.length, certificateAttributes.workshop.length, mainTab])
+  }, [certificateAttributes?.course?.length, certificateAttributes?.webinar?.length, certificateAttributes?.workshop?.length, mainTab])
 
   const initializeFreshData = () => {
     const initialData: MappingData = {} as MappingData
 
     ;(["course", "webinar", "workshop"] as CertificateType[]).forEach((type) => {
-      const attrs = certificateAttributes[type]
+      const attrs = certificateAttributes?.[type] || []
       const attrBlocks: Record<string, AttributeBlock> = {}
       
       // Initialize positions and styles for all attributes

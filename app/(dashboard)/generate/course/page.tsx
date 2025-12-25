@@ -4,10 +4,22 @@ import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { fetchCertificateAttributes, getCertificateMapping, getBaseCertificateTemplate, type CertificateAttributes } from "@/lib/api/certificates"
 import Loader from "@/components/loader"
+import { GenerateCertificate } from "@/components/certificate/generate-certificate"
+
+// Default mapping structure for free plan
+const DEFAULT_MAPPING = {
+  course: {
+    student_name: { x: 100, y: 200, fontSize: 24, fontFamily: "Arial", color: "#000000" },
+    course_name: { x: 100, y: 250, fontSize: 20, fontFamily: "Arial", color: "#000000" },
+    completion_date: { x: 100, y: 300, fontSize: 18, fontFamily: "Arial", color: "#000000" },
+  },
+}
 
 export default function CoursePage() {
   const router = useRouter()
-  const [attributes, setAttributes] = useState<CertificateAttributes | null>(null)
+  const [attributes, setAttributes] = useState<string[] | null>(null)
+  const [mapping, setMapping] = useState<any>(null)
+  const [templateUrl, setTemplateUrl] = useState<string>("")
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [redirectMessage, setRedirectMessage] = useState<string | null>(null)
@@ -22,15 +34,13 @@ export default function CoursePage() {
         setIsLoading(true)
         setError(null)
         
-        // Step 1: Check if base certificate exists
+        // Step 1: Check if base certificate exists (already fetched)
         const baseCertResponse = await getBaseCertificateTemplate()
         
         if (!baseCertResponse.success || !baseCertResponse.data) {
-          // Show message in page content
           setRedirectMessage('Template Not Found')
           setIsLoading(false)
           
-          // Show toaster for missing base certificate
           const toastEvent = new CustomEvent('showToast', {
             detail: {
               message: 'You have to upload base certificate first',
@@ -39,40 +49,54 @@ export default function CoursePage() {
           })
           window.dispatchEvent(toastEvent)
           
-          // Redirect to templates page after a short delay
           setTimeout(() => {
             router.push('/templates')
           }, 1500)
           return
         }
+
+        // Store template URL
+        setTemplateUrl(baseCertResponse.data.template_url)
         
-        // Step 2: Check if certificate mapping exists
+        // Step 2: Check if certificate mapping exists (already called on page entry)
         const mappingResponse = await getCertificateMapping()
         
         if (!mappingResponse.success) {
-          // Show message in page content
-          setRedirectMessage('Mapping Not Found')
-          setIsLoading(false)
+          // Check if user is on free plan
+          const planData = sessionStorage.getItem("plan")
+          const plan = planData ? JSON.parse(planData) : null
           
-          // Show toaster for missing mapping
-          const toastEvent = new CustomEvent('showToast', {
-            detail: {
-              message: 'No mappings found. Please configure certificate mapping first.',
-              type: 'error'
-            }
-          })
-          window.dispatchEvent(toastEvent)
-          
-          // Redirect to certificate-mapping after a short delay
-          setTimeout(() => {
-            router.push('/certificate-mapping')
-          }, 1500)
-          return
+          if (plan && plan.name === "free") {
+            // Use default mapping for free plan
+            setMapping(DEFAULT_MAPPING.course)
+          } else {
+            // Show message and redirect for non-free plans
+            setRedirectMessage('Mapping Not Found')
+            setIsLoading(false)
+            
+            const toastEvent = new CustomEvent('showToast', {
+              detail: {
+                message: 'Custom certificate mapping not found. Please configure mapping first.',
+                type: 'error'
+              }
+            })
+            window.dispatchEvent(toastEvent)
+            
+            setTimeout(() => {
+              router.push('/certificate-mapping')
+            }, 1500)
+            return
+          }
+        } else {
+          // Use custom mapping from API - extract course mapping
+          setMapping(mappingResponse.data?.course || mappingResponse.data)
         }
         
-        // Fetch attributes
+        // Fetch attributes from sessionStorage or API
         const data = await fetchCertificateAttributes()
-        setAttributes(data)
+        if (data && data.course) {
+          setAttributes(data.course)
+        }
       } catch (err) {
         console.error("Failed to load data:", err)
         setError(err instanceof Error ? err.message : "Failed to load data")
@@ -82,7 +106,7 @@ export default function CoursePage() {
     }
 
     loadData()
-  }, [])
+  }, [router])
 
   if (isLoading) {
     return (
@@ -107,30 +131,29 @@ export default function CoursePage() {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
-          <h2 className="text-lg font-medium text-foreground mb-2">Failed to load attributes</h2>
+          <h2 className="text-lg font-medium text-foreground mb-2">Failed to load data</h2>
           <p className="text-sm text-muted-foreground">{error}</p>
         </div>
       </div>
     )
   }
 
-  return (
-    <div className="flex items-center justify-center min-h-[60vh]">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold text-primary mb-4">
-          You are in Course page
-        </h1>
-        {attributes?.course && (
-          <div className="mt-4 text-left inline-block">
-            <p className="text-sm text-muted-foreground mb-2">Available fields:</p>
-            <ul className="list-disc list-inside">
-              {attributes.course.map((field) => (
-                <li key={field} className="text-sm">{field}</li>
-              ))}
-            </ul>
-          </div>
-        )}
+  if (!attributes || attributes.length === 0 || !mapping || !templateUrl) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <h2 className="text-lg font-medium text-foreground mb-2">No certificate configuration found</h2>
+          <p className="text-sm text-muted-foreground">Please configure your certificate settings first</p>
+        </div>
       </div>
-    </div>
+    )
+  }
+
+  return (
+    <GenerateCertificate
+      attributes={attributes}
+      mapping={mapping}
+      templateUrl={templateUrl}
+    />
   )
 }

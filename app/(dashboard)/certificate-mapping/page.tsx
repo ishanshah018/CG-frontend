@@ -213,18 +213,6 @@ export default function CertificateMappingPage() {
   const [showHorizontalGuide, setShowHorizontalGuide] = useState(false)
   const [isCustomMappingLocked, setIsCustomMappingLocked] = useState(false)
 
-  // Load Google Fonts
-  useEffect(() => {
-    const link = document.createElement('link')
-    link.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Libre+Baskerville:wght@400;700&family=Cormorant+Garamond:wght@400;700&family=Merriweather:wght@400;700&family=Inter:wght@400;600&family=Source+Sans+3:wght@400;600&family=Open+Sans:wght@400;600&family=Lato:wght@400;700&family=Great+Vibes&family=Allura&family=Pinyon+Script&family=Roboto:wght@400;500&display=swap'
-    link.rel = 'stylesheet'
-    document.head.appendChild(link)
-    
-    return () => {
-      document.head.removeChild(link)
-    }
-  }, [])
-
   // Check if desktop
   useEffect(() => {
     const checkDesktop = () => {

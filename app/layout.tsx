@@ -3,6 +3,7 @@ import { Analytics } from "@vercel/analytics/react"
 
 import { Alegreya_Sans, Inter, Source_Sans_3 } from "next/font/google"
 import { Toaster } from "sonner"
+import { certificateFonts } from "./fonts"
 
 const alegreyaSans = Alegreya_Sans({
   subsets: ["latin"],
@@ -28,7 +29,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${inter.className} ${alegreyaSans.variable} ${sourceSansPro.variable} antialiased`}>
+      <body className={`${inter.className} ${alegreyaSans.variable} ${sourceSansPro.variable} ${certificateFonts} antialiased`}>
         {children}
         <Toaster position="top-center" />
         <Analytics />

@@ -57,7 +57,7 @@ const [minimumSkeletonTimePassed, setMinimumSkeletonTimePassed] = useState(false
 useEffect(() => {
 const timer = setTimeout(() => {
     setMinimumSkeletonTimePassed(true)
-}, 1000)
+}, 500)
 
 return () => clearTimeout(timer)
 }, [])

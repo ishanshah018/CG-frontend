@@ -1,5 +1,6 @@
 import "./globals.css"
 import { Analytics } from "@vercel/analytics/react"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 import { Alegreya_Sans, Inter, Source_Sans_3 } from "next/font/google"
 import { Toaster } from "sonner"
@@ -33,6 +34,7 @@ export default function RootLayout({
         {children}
         <Toaster position="top-center" />
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   )

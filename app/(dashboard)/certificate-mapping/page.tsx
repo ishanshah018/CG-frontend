@@ -3,14 +3,12 @@
 import { useAuth } from "@/lib/auth"
 import React, { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { getBaseCertificateTemplate, fetchCertificateAttributes, saveCertificateMapping } from "@/lib/api/certificates"
+import { getBaseCertificateTemplate, fetchCertificateAttributes, saveCertificateMapping, getCertificateMapping } from "@/lib/api/certificates"
 import { Monitor, User, BookOpen, Calendar, Video, UserCircle, Briefcase } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
 import Loader from "@/components/loader"
 
 // Types
 type CertificateType = "course" | "webinar" | "workshop"
-type MainTab = "default" | "custom"
 
 interface StyleObject {
   fontFamily: string
@@ -51,12 +49,6 @@ const DEFAULT_HEADINGS = {
 
 const DEFAULT_DESCRIPTION_TOP = "This certificate is awarded to"
 
-const DESCRIPTION_BODY_TEMPLATES = {
-  course: "Has successfully completed the",
-  webinar: "In recognition of participation in",
-  workshop: "For completing a workshop",
-}
-
 // Helper function to generate description body template based on available attributes
 const getDescriptionBodyTemplate = (type: CertificateType, attrs: string[]) => {
   if (type === 'course') {
@@ -85,42 +77,6 @@ const getDescriptionBodyTemplate = (type: CertificateType, attrs: string[]) => {
     return "For completing a workshop"
   }
   return ""
-}
-
-// Default positions for "Our Default Mapping" preview
-const getDefaultPositions = (type: CertificateType, attributes: string[]) => {
-  const positions: Record<string, { x: number; y: number }> = {}
-  
-  if (type === 'course') {
-    // Course: Heading, Description, Student Name, Description Body (with course_name), Date
-    positions.heading = { x: 50, y: 15 }
-    positions.descriptionTop = { x: 50, y: 28 }
-    positions.student_name = { x: 50, y: 38 }
-    positions.descriptionBody = { x: 50, y: 55 }
-    // Add completion_date if it exists - shown separately
-    if (attributes.includes('completion_date')) {
-      positions.completion_date = { x: 50, y: 70 }
-    }
-  } else if (type === 'webinar') {
-    // Webinar: Heading, Description, Student Name, Description Body (with webinar_name + host_name), Date
-    positions.heading = { x: 50, y: 15 }
-    positions.descriptionTop = { x: 50, y: 28 }
-    positions.student_name = { x: 50, y: 38 }
-    positions.descriptionBody = { x: 50, y: 55 }
-    // Add webinar_date if it exists - shown separately
-    if (attributes.includes('webinar_date')) {
-      positions.webinar_date = { x: 50, y: 70 }
-    }
-  } else if (type === 'workshop') {
-    // Workshop: Heading, Description, Student Name, Description Body (includes workshop_name + workshop_date)
-    positions.heading = { x: 50, y: 20 }
-    positions.descriptionTop = { x: 50, y: 33 }
-    positions.student_name = { x: 50, y: 43 }
-    positions.descriptionBody = { x: 50, y: 60 }
-    // workshop_date is embedded in description body, not shown separately
-  }
-  
-  return positions
 }
 
 // Mock data for preview
@@ -195,12 +151,12 @@ export default function CertificateMappingPage() {
   const router = useRouter()
   const hasLoadedTemplateRef = useRef(false)
   const [isDesktop, setIsDesktop] = useState(true)
-  const [mainTab, setMainTab] = useState<MainTab>("default")
   const [certificateType, setCertificateType] = useState<CertificateType>("course")
   const [templateUrl, setTemplateUrl] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [redirectMessage, setRedirectMessage] = useState<string | null>(null)
-  const [mappingData, setMappingData] = useState<MappingData | null>(null) // Only used for custom mapping
+  const [mappingDraft, setMappingDraft] = useState<MappingData | null>(null) // Live edits (drag, style, text)
+  const mappingDraftRef = useRef<MappingData | null>(null) // Single source of truth for saving
   const [draggingElement, setDraggingElement] = useState<string | null>(null)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const canvasRef = useRef<HTMLDivElement>(null)
@@ -211,7 +167,6 @@ export default function CertificateMappingPage() {
   })
   const [showVerticalGuide, setShowVerticalGuide] = useState(false)
   const [showHorizontalGuide, setShowHorizontalGuide] = useState(false)
-  const [isCustomMappingLocked, setIsCustomMappingLocked] = useState(false)
 
   // Check if desktop
   useEffect(() => {
@@ -223,18 +178,31 @@ export default function CertificateMappingPage() {
     return () => window.removeEventListener("resize", checkDesktop)
   }, [])
 
-  // Check plan and lock custom mapping for free users
+  // Load custom mapping from API on page load (API is source of truth)
   useEffect(() => {
-    try {
-      const planStr = sessionStorage.getItem('plan')
-      if (planStr) {
-        const plan = JSON.parse(planStr)
-        setIsCustomMappingLocked(plan.name === 'free')
+    const loadCustomMapping = async () => {
+      try {
+        const mappingResponse = await getCertificateMapping()
+        
+        // API is source of truth: load into state first, then cache to sessionStorage
+        if (mappingResponse.success && mappingResponse.data) {
+          setMappingDraft(mappingResponse.data)
+          mappingDraftRef.current = mappingResponse.data
+          sessionStorage.setItem('certificate_mapping', JSON.stringify(mappingResponse.data))
+        }
+      } catch {
+        // Silently ignore any errors
+        console.log('Custom mapping fetch skipped or unavailable')
       }
-    } catch (error) {
-      console.error('Failed to check plan:', error)
     }
+    
+    loadCustomMapping()
   }, [])
+
+  // Keep mappingDraftRef synced with mappingDraft state (CRITICAL for save consistency)
+  useEffect(() => {
+    mappingDraftRef.current = mappingDraft
+  }, [mappingDraft])
 
   // Load certificate attributes from API
   useEffect(() => {
@@ -301,8 +269,8 @@ export default function CertificateMappingPage() {
     property: "fontFamily" | "fontSize" | "color",
     value: string | number
   ) => {
-    if (!mappingData || mainTab !== 'custom') return // Only allow in custom mode
-    const newData = JSON.parse(JSON.stringify(mappingData)) as MappingData
+    if (!mappingDraft) return
+    const newData = structuredClone(mappingDraft) as MappingData
     
     if (blockType === "attribute") {
       // Update attribute style
@@ -328,7 +296,7 @@ export default function CertificateMappingPage() {
       }
     }
     
-    saveMappingData(newData)
+    updateMappingDraft(newData)
   }
 
   // Load base certificate template
@@ -367,7 +335,7 @@ export default function CertificateMappingPage() {
       }
     }
     loadTemplate()
-  }, [])
+  }, [router])
 
   // Helper to ensure text block has style
   const ensureTextBlockStyle = (block: unknown, defaultStyle: StyleObject): TextBlock => {
@@ -397,10 +365,10 @@ export default function CertificateMappingPage() {
     }
   }
 
-  // Load mapping data from sessionStorage ONLY for custom mapping
+  // Load mapping data - only used if API returned no data
   useEffect(() => {
-    if (mainTab !== 'custom') return // Skip if in default mode
     if (certificateAttributes.course.length === 0) return // Wait for attributes to load
+    if (mappingDraft !== null) return // Already loaded from API
 
     const stored = sessionStorage.getItem(STORAGE_KEY)
     if (stored) {
@@ -483,9 +451,9 @@ export default function CertificateMappingPage() {
               ),
               descriptionBody: {
                 text: getDescriptionBodyTemplate(type, certificateAttributes[type]),
-                x: (typeData.descriptionBody as any)?.x ?? 50,
-                y: (typeData.descriptionBody as any)?.y ?? 70,
-                style: (typeData.descriptionBody as any)?.style || { fontFamily: "Roboto", fontSize: 14, color: "#4B5563" }
+                x: typeof typeData.descriptionBody === 'object' && typeData.descriptionBody !== null ? (typeData.descriptionBody.x as number) ?? 50 : 50,
+                y: typeof typeData.descriptionBody === 'object' && typeData.descriptionBody !== null ? (typeData.descriptionBody.y as number) ?? 70 : 70,
+                style: typeof typeData.descriptionBody === 'object' && typeData.descriptionBody !== null && typeof typeData.descriptionBody.style === 'object' ? typeData.descriptionBody.style as StyleObject : { fontFamily: "Roboto", fontSize: 14, color: "#4B5563" }
               },
               attributes: migratedAttributes,
               attributesInDescription: attrInDesc,
@@ -550,7 +518,7 @@ export default function CertificateMappingPage() {
           }
         })
         
-        setMappingData(migratedData)
+        setMappingDraft(migratedData) // Initialize draft with saved state
         sessionStorage.setItem(STORAGE_KEY, JSON.stringify(migratedData))
       } catch (error) {
         console.error("Failed to parse mapping data:", error)
@@ -562,7 +530,7 @@ export default function CertificateMappingPage() {
       initializeFreshData()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [certificateAttributes?.course?.length, certificateAttributes?.webinar?.length, certificateAttributes?.workshop?.length, mainTab])
+  }, [certificateAttributes?.course?.length, certificateAttributes?.webinar?.length, certificateAttributes?.workshop?.length])
 
   const initializeFreshData = () => {
     const initialData: MappingData = {} as MappingData
@@ -660,14 +628,14 @@ export default function CertificateMappingPage() {
       }
     })
     
-    setMappingData(initialData)
+    setMappingDraft(initialData) // Initialize draft with saved state
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(initialData))
   }
 
   // Toggle attribute inclusion in description
   const toggleAttributeInDescription = (attr: string, include: boolean) => {
-    if (!mappingData || mainTab !== 'custom') return // Only allow in custom mode
-    const newData = { ...mappingData }
+    if (!mappingDraft) return
+    const newData = structuredClone(mappingDraft) as MappingData
     const current = newData[certificateType].attributesInDescription || []
     
     if (include && !current.includes(attr)) {
@@ -689,15 +657,13 @@ export default function CertificateMappingPage() {
       }
     }
     
-    saveMappingData(newData)
+    updateMappingDraft(newData)
   }
 
-  // Save mapping data to sessionStorage (only for custom mapping)
-  const saveMappingData = (data: MappingData) => {
-    if (mainTab !== 'custom') return // Don't save in default mode
-    if (isCustomMappingLocked) return // Don't save if feature is locked
-    setMappingData(data)
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+  // Update mapping draft ONLY (parent's single responsibility)
+  // Child component will detect intentional edits and set hasUnsavedChanges
+  const updateMappingDraft = (data: MappingData) => {
+    setMappingDraft(data)
   }
 
   // Handle drag start
@@ -705,15 +671,14 @@ export default function CertificateMappingPage() {
     e: React.MouseEvent,
     elementType: "heading" | "heading2" | "descriptionTop" | "descriptionBody" | string
   ) => {
-    if (mainTab !== 'custom') return // Only allow dragging in custom mode
     e.preventDefault() // Prevent text selection
     if (!canvasRef.current) return
 
     const rect = canvasRef.current.getBoundingClientRect()
     const currentPos =
       elementType === "heading" || elementType === "descriptionTop" || elementType === "descriptionBody"
-        ? mappingData?.[certificateType]?.[elementType]
-        : mappingData?.[certificateType]?.attributes[elementType]
+        ? mappingDraft?.[certificateType]?.[elementType]
+        : mappingDraft?.[certificateType]?.attributes[elementType]
 
     if (!currentPos) return
 
@@ -729,12 +694,18 @@ export default function CertificateMappingPage() {
 
   // Handle drag
   useEffect(() => {
-    if (!draggingElement || !canvasRef.current || !mappingData) return
+    if (!draggingElement || !canvasRef.current) return
 
     const SNAP_THRESHOLD = 5 // pixels threshold for snapping
 
     const handleMouseMove = (e: MouseEvent) => {
-      const rect = canvasRef.current!.getBoundingClientRect()
+      if (!canvasRef.current) return // Guard ref access
+      
+      // CRITICAL: Read from ref to avoid stale closure
+      const currentDraft = mappingDraftRef.current
+      if (!currentDraft) return
+      
+      const rect = canvasRef.current.getBoundingClientRect()
       
       // Calculate raw position (before snapping)
       let x = ((e.clientX - rect.left - dragOffset.x) / rect.width) * 100
@@ -775,7 +746,7 @@ export default function CertificateMappingPage() {
       const clampedX = Math.max(0, Math.min(100, x))
       const clampedY = Math.max(0, Math.min(100, y))
 
-      const newData = { ...mappingData }
+      const newData = structuredClone(currentDraft) as MappingData
       if (draggingElement === "heading" || draggingElement === "descriptionTop" || draggingElement === "descriptionBody") {
         newData[certificateType][draggingElement] = {
           ...newData[certificateType][draggingElement],
@@ -799,7 +770,7 @@ export default function CertificateMappingPage() {
           }
         }
       }
-      setMappingData(newData)
+      setMappingDraft(newData) // Update draft only
     }
 
     const handleMouseUp = () => {
@@ -807,9 +778,7 @@ export default function CertificateMappingPage() {
       setShowVerticalGuide(false)
       setShowHorizontalGuide(false)
       
-      if (mappingData) {
-        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(mappingData))
-      }
+      // DO NOT write to sessionStorage on mouseup - only on explicit save
       setDraggingElement(null)
     }
 
@@ -820,17 +789,17 @@ export default function CertificateMappingPage() {
       document.removeEventListener("mousemove", handleMouseMove)
       document.removeEventListener("mouseup", handleMouseUp)
     }
-  }, [draggingElement, dragOffset, mappingData, certificateType])
+  }, [draggingElement, dragOffset, certificateType])
 
   // Update text
   const updateText = (
     field: "heading" | "descriptionTop" | "descriptionBody",
     text: string
   ) => {
-    if (!mappingData) return
-    const newData = { ...mappingData }
+    if (!mappingDraft) return
+    const newData = structuredClone(mappingDraft) as MappingData
     newData[certificateType][field].text = text
-    saveMappingData(newData)
+    updateMappingDraft(newData)
   }
 
   if (!isDesktop) {
@@ -886,50 +855,8 @@ export default function CertificateMappingPage() {
           Certificate Mapping
         </h1>
         <p className="text-muted-foreground">
-          Control how your certificate content is placed on the template
+          Configure your custom certificate mapping
         </p>
-      </div>
-
-      {/* Main Tabs */}
-      <div className="border-b border-border">
-        <div className="flex gap-8">
-          <button
-            onClick={() => setMainTab("default")}
-            className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
-              mainTab === "default"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Our Default Mapping
-          </button>
-          <div className="relative group">
-            <button
-              onClick={() => !isCustomMappingLocked && setMainTab("custom")}
-              disabled={isCustomMappingLocked}
-              className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
-                mainTab === "custom"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              } ${isCustomMappingLocked ? "opacity-50 cursor-not-allowed" : ""}`}
-            >
-              Custom Mapping
-              {isCustomMappingLocked && (
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                </svg>
-              )}
-            </button>
-            {isCustomMappingLocked && (
-              <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 hidden group-hover:block z-50">
-                <div className="bg-popover text-popover-foreground text-xs rounded-md py-2 px-3 shadow-md border border-border whitespace-nowrap">
-                  <p className="font-medium">🔒 Premium Feature</p>
-                  <p className="text-muted-foreground mt-0.5">Upgrade to unlock</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
       </div>
 
       {/* Certificate Type Sub-tabs */}
@@ -950,209 +877,25 @@ export default function CertificateMappingPage() {
       </div>
 
       {/* Content */}
-      {mainTab === "default" ? (
-        <DefaultMappingView
-          templateUrl={templateUrl}
-          certificateType={certificateType}
-          attributes={certificateAttributes[certificateType]}
-        />
-      ) : (
-        <CustomMappingView
-          templateUrl={templateUrl}
-          certificateType={certificateType}
-          setCertificateType={setCertificateType}
-          mappingData={mappingData}
-          attributes={certificateAttributes[certificateType]}
-          updateText={updateText}
-          handleDragStart={handleDragStart}
-          draggingElement={draggingElement}
-          canvasRef={canvasRef}
-          toggleAttributeInDescription={toggleAttributeInDescription}
-          updateStyle={updateStyle}
-          showVerticalGuide={showVerticalGuide}
-          showHorizontalGuide={showHorizontalGuide}
-        />
-      )}
-    </div>
-  )
-}
-
-// Default Mapping View Component
-function DefaultMappingView({
-  templateUrl,
-  certificateType,
-  attributes,
-}: {
-  templateUrl: string
-  certificateType: CertificateType
-  attributes: string[]
-}) {
-  const positions = getDefaultPositions(certificateType, attributes)
-
-  // Professional font styles for each element
-  const styles = {
-    heading: {
-      fontFamily: 'Playfair Display',
-      fontSize: '40px',
-      fontWeight: '700',
-      color: '#1a1a1a',
-      letterSpacing: '1px'
-    },
-    descriptionTop: {
-      fontFamily: 'Inter',
-      fontSize: '16px',
-      fontWeight: '400',
-      color: '#4a5568',
-      letterSpacing: '0.5px'
-    },
-    studentName: {
-      fontFamily: 'Great Vibes',
-      fontSize: '48px',
-      fontWeight: '400',
-      color: '#2d3748',
-      letterSpacing: '1px'
-    },
-    descriptionBody: {
-      fontFamily: 'Roboto',
-      fontSize: '18px',
-      fontWeight: '400',
-      color: '#4a5568',
-      lineHeight: '1.6'
-    },
-    date: {
-      fontFamily: 'Inter',
-      fontSize: '16px',
-      fontWeight: '500',
-      color: '#2d3748',
-      letterSpacing: '0.5px'
-    }
-  }
-
-  // Get the date attribute based on certificate type
-  const getDateAttribute = () => {
-    if (certificateType === 'course' && attributes.includes('completion_date')) {
-      return 'completion_date'
-    } else if (certificateType === 'webinar' && attributes.includes('webinar_date')) {
-      return 'webinar_date'
-    } else if (certificateType === 'workshop' && attributes.includes('workshop_date')) {
-      return 'workshop_date'
-    }
-    return null
-  }
-
-  const dateAttribute = getDateAttribute()
-
-  // Get complete description body with interpolated values (only for attributes that exist in session)
-  const getDescriptionBodyText = () => {
-    if (certificateType === 'course') {
-      if (attributes.includes('course_name')) {
-        return `Has successfully completed the ${MOCK_DATA.course_name}`
-      }
-      return 'Has successfully completed the'
-    } else if (certificateType === 'webinar') {
-      const hasWebinarName = attributes.includes('webinar_name')
-      const hasHostName = attributes.includes('host_name')
-      
-      if (hasWebinarName && hasHostName) {
-        return `In recognition of participation in ${MOCK_DATA.webinar_name} hosted by ${MOCK_DATA.host_name}`
-      } else if (hasWebinarName) {
-        return `In recognition of participation in ${MOCK_DATA.webinar_name}`
-      }
-      return 'In recognition of participation in'
-    } else if (certificateType === 'workshop') {
-      const hasWorkshopName = attributes.includes('workshop_name')
-      const hasWorkshopDate = attributes.includes('workshop_date')
-      
-      if (hasWorkshopName && hasWorkshopDate) {
-        return `For completing a ${MOCK_DATA.workshop_name} on ${MOCK_DATA.workshop_date}`
-      } else if (hasWorkshopName) {
-        return `For completing a ${MOCK_DATA.workshop_name}`
-      }
-      return 'For completing a workshop'
-    }
-    return ''
-  }
-
-  return (
-    <div className="bg-card border border-border rounded-lg p-8">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold">Preview - Our Default Mapping</h3>
-        <Badge variant="outline" className="text-xs">
-          System Defined Layout • Professional Fonts
-        </Badge>
-      </div>
-
-      <div className="relative w-full max-w-4xl mx-auto aspect-[1.414/1] bg-muted rounded-lg overflow-hidden">
-        <img
-          src={templateUrl}
-          alt="Base Certificate"
-          className="w-full h-full object-contain"
-        />
-
-        {/* Heading */}
-        {positions.heading && (
-          <div
-            className="absolute transform -translate-x-1/2 -translate-y-1/2"
-            style={{ left: `${positions.heading.x}%`, top: `${positions.heading.y}%` }}
-          >
-            <div 
-              className="text-center whitespace-nowrap" 
-              style={styles.heading}
-              dangerouslySetInnerHTML={{ 
-                __html: DEFAULT_HEADINGS[certificateType].replace(/<br>/gi, '<br/>') 
-              }}
-            />
-          </div>
-        )}
-
-        {/* Description Top */}
-        {positions.descriptionTop && (
-          <div
-            className="absolute transform -translate-x-1/2 -translate-y-1/2"
-            style={{ left: `${positions.descriptionTop.x}%`, top: `${positions.descriptionTop.y}%` }}
-          >
-            <div className="text-center" style={styles.descriptionTop}>
-              {DEFAULT_DESCRIPTION_TOP}
-            </div>
-          </div>
-        )}
-
-        {/* Student Name */}
-        {positions.student_name && attributes.includes('student_name') && (
-          <div
-            className="absolute transform -translate-x-1/2 -translate-y-1/2"
-            style={{ left: `${positions.student_name.x}%`, top: `${positions.student_name.y}%` }}
-          >
-            <div className="text-center" style={styles.studentName}>
-              {MOCK_DATA.student_name}
-            </div>
-          </div>
-        )}
-
-        {/* Description Body - with embedded attribute values */}
-        {positions.descriptionBody && (
-          <div
-            className="absolute transform -translate-x-1/2 -translate-y-1/2 max-w-[80%]"
-            style={{ left: `${positions.descriptionBody.x}%`, top: `${positions.descriptionBody.y}%` }}
-          >
-            <div className="text-center" style={styles.descriptionBody}>
-              {getDescriptionBodyText()}
-            </div>
-          </div>
-        )}
-
-        {/* Date - only show if NOT already in description body */}
-        {dateAttribute && positions[dateAttribute] && certificateType !== 'workshop' && (
-          <div
-            className="absolute transform -translate-x-1/2 -translate-y-1/2"
-            style={{ left: `${positions[dateAttribute].x}%`, top: `${positions[dateAttribute].y}%` }}
-          >
-            <div className="text-center" style={styles.date}>
-              {MOCK_DATA[dateAttribute]}
-            </div>
-          </div>
-        )}
-      </div>
+      <CustomMappingView
+        templateUrl={templateUrl}
+        certificateType={certificateType}
+        setCertificateType={setCertificateType}
+        mappingDraft={mappingDraft}
+        mappingDraftRef={mappingDraftRef}
+        attributes={certificateAttributes[certificateType]}
+        updateText={updateText}
+        handleDragStart={handleDragStart}
+        draggingElement={draggingElement}
+        canvasRef={canvasRef}
+        toggleAttributeInDescription={toggleAttributeInDescription}
+        updateStyle={updateStyle}
+        showVerticalGuide={showVerticalGuide}
+        showHorizontalGuide={showHorizontalGuide}
+        onSaveSuccess={(savedData) => {
+          sessionStorage.setItem(STORAGE_KEY, JSON.stringify(savedData))
+        }}
+      />
     </div>
   )
 }
@@ -1162,7 +905,8 @@ function CustomMappingView({
   templateUrl,
   certificateType,
   setCertificateType,
-  mappingData,
+  mappingDraft,
+  mappingDraftRef,
   attributes,
   updateText,
   handleDragStart,
@@ -1172,11 +916,13 @@ function CustomMappingView({
   updateStyle,
   showVerticalGuide,
   showHorizontalGuide,
+  onSaveSuccess,
 }: {
   templateUrl: string
   certificateType: CertificateType
   setCertificateType: (type: CertificateType) => void
-  mappingData: MappingData | null
+  mappingDraft: MappingData | null
+  mappingDraftRef: React.RefObject<MappingData | null>
   attributes: string[]
   updateText: (field: "heading" | "descriptionTop" | "descriptionBody", text: string) => void
   handleDragStart: (e: React.MouseEvent, elementType: string) => void
@@ -1186,32 +932,59 @@ function CustomMappingView({
   updateStyle: (blockType: "heading" | "descriptionTop" | "descriptionBody" | "attribute", blockName: string, property: "fontFamily" | "fontSize" | "color", value: string | number) => void
   showVerticalGuide: boolean
   showHorizontalGuide: boolean
+  onSaveSuccess: (savedData: MappingData) => void
 }) {
   const [saveSuccess, setSaveSuccess] = React.useState(false)
-  const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false)
+  const [dirtyMap, setDirtyMap] = React.useState<Record<CertificateType, boolean>>({
+    course: false,
+    webinar: false,
+    workshop: false,
+  })
+  const hasUnsavedChanges = dirtyMap[certificateType]
+  
+  const [isSaving, setIsSaving] = React.useState(false)
 
-  // Reset save state when certificate type changes
+  // Check if mapping has content on mount and enable save
   React.useEffect(() => {
+    if (mappingDraft && mappingDraft[certificateType]) {
+      // If there's existing mapping data, mark as saveable
+      setDirtyMap(prev => ({
+        ...prev,
+        [certificateType]: true,
+      }))
+    }
+  }, [mappingDraft, certificateType])
+
+  // Helper to mark dirty state (intentional edits only)
+  const markDirty = () => {
+    setDirtyMap(prev => ({
+      ...prev,
+      [certificateType]: true,
+    }))
     setSaveSuccess(false)
-    setHasUnsavedChanges(false)
-  }, [certificateType])
+  }
 
-  // Mark as having unsaved changes whenever mappingData changes
-  React.useEffect(() => {
-    const handleChange = () => {
-      setHasUnsavedChanges(true)
-      setSaveSuccess(false)
-    }
-    
-    // This runs when user makes any change to mappingData
-    if (mappingData) {
-      handleChange()
-    }
-  }, [mappingData])
+  // Wrapper for updateText that marks dirty state
+  const handleUpdateText = (field: "heading" | "descriptionTop" | "descriptionBody", text: string) => {
+    updateText(field, text)
+    markDirty()
+  }
 
-  if (!mappingData || !mappingData[certificateType]) return null
+  // Wrapper for updateStyle that marks dirty state
+  const handleUpdateStyle = (blockType: "heading" | "descriptionTop" | "descriptionBody" | "attribute", blockName: string, property: "fontFamily" | "fontSize" | "color", value: string | number) => {
+    updateStyle(blockType, blockName, property, value)
+    markDirty()
+  }
 
-  const currentMapping = mappingData[certificateType]
+  // Wrapper for toggleAttributeInDescription that marks dirty state
+  const handleToggleAttributeInDescription = (attr: string, include: boolean) => {
+    toggleAttributeInDescription(attr, include)
+    markDirty()
+  }
+
+  if (!mappingDraft || !mappingDraft[certificateType]) return null
+
+  const currentMapping = mappingDraft[certificateType]
 
   // Safety check for data structure
   if (!currentMapping.descriptionTop || !currentMapping.descriptionBody) {
@@ -1260,13 +1033,19 @@ function CustomMappingView({
   const handleSaveMapping = async () => {
     if (!allAttributesReady || !hasUnsavedChanges) return
     
+    // CRITICAL: Use ref to get latest draft (prevents stale closure bug)
+    const latestDraft = mappingDraftRef.current
+    if (!latestDraft || !latestDraft[certificateType]) return
+    
+    const latestMapping = latestDraft[certificateType]
+    
     // Validate description body - extract all {attribute} placeholders
-    const descriptionText = currentMapping.descriptionBody.text
+    const descriptionText = latestMapping.descriptionBody.text
     const attributePlaceholders = descriptionText.match(/\{([^}]+)\}/g) || []
-    const attributesInText = attributePlaceholders.map(placeholder => placeholder.replace(/[{}]/g, ''))
+    const attributesInText = attributePlaceholders.map((placeholder: string) => placeholder.replace(/[{}]/g, ''))
     
     // Check if any attribute in description doesn't exist in available attributes
-    const invalidAttributes = attributesInText.filter(attr => !attributes.includes(attr))
+    const invalidAttributes = attributesInText.filter((attr: string) => !attributes.includes(attr))
     
     if (invalidAttributes.length > 0) {
       const toastEvent = new CustomEvent('showToast', {
@@ -1279,36 +1058,44 @@ function CustomMappingView({
       return
     }
     
-    // If this is workshop tab, call the API to save to backend
-    if (certificateType === 'workshop') {
-      try {
-        const response = await saveCertificateMapping()
-        if (response.success) {
-          // Show success toaster
-          const toastEvent = new CustomEvent('showToast', {
-            detail: {
-              message: response.message || 'Custom certificate mapping saved successfully',
-              type: 'success'
-            }
-          })
-          window.dispatchEvent(toastEvent)
-        }
-      } catch (error) {
-        console.error('Failed to save certificate mapping:', error)
+    // Save entire mappingDraft to backend (all certificate types)
+    setIsSaving(true)
+    try {
+      // CRITICAL: Pass the entire mappingDraft to the API
+      const response = await saveCertificateMapping(latestDraft)
+      if (response.success) {
+        // Show success toaster
         const toastEvent = new CustomEvent('showToast', {
           detail: {
-            message: error instanceof Error ? error.message : 'Failed to save certificate mapping',
-            type: 'error'
+            message: response.message || 'Custom certificate mapping saved successfully',
+            type: 'success'
           }
         })
         window.dispatchEvent(toastEvent)
-        return
+        
+        // Update saved state and sessionStorage ONLY after successful save
+        // Use latestDraft from ref (guaranteed to be current)
+        onSaveSuccess(latestDraft)
+        
+        // Mark as saved
+        setDirtyMap(prev => ({
+          ...prev,
+          [certificateType]: false,
+        }))
+        setSaveSuccess(true)
       }
+    } catch (error) {
+      console.error('Failed to save certificate mapping:', error)
+      const toastEvent = new CustomEvent('showToast', {
+        detail: {
+          message: error instanceof Error ? error.message : 'Failed to save certificate mapping',
+          type: 'error'
+        }
+      })
+      window.dispatchEvent(toastEvent)
+    } finally {
+      setIsSaving(false)
     }
-    
-    // Save to sessionStorage (already done automatically, but we show confirmation)
-    setHasUnsavedChanges(false)
-    setSaveSuccess(true)
   }
 
   return (
@@ -1327,7 +1114,7 @@ function CustomMappingView({
               <input
                 type="text"
                 value={currentMapping.heading.text}
-                onChange={(e) => updateText("heading", e.target.value)}
+                onChange={(e) => handleUpdateText("heading", e.target.value)}
                 className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
               <p className="text-xs text-muted-foreground mt-1">
@@ -1341,7 +1128,7 @@ function CustomMappingView({
               </label>
               <textarea
                 value={currentMapping.descriptionTop.text}
-                onChange={(e) => updateText("descriptionTop", e.target.value)}
+                onChange={(e) => handleUpdateText("descriptionTop", e.target.value)}
                 rows={2}
                 className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                 placeholder="e.g., This certificate is awarded to"
@@ -1354,7 +1141,7 @@ function CustomMappingView({
               </label>
               <textarea
                 value={currentMapping.descriptionBody.text}
-                onChange={(e) => updateText("descriptionBody", e.target.value)}
+                onChange={(e) => handleUpdateText("descriptionBody", e.target.value)}
                 rows={3}
                 className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                 placeholder="Enter description text"
@@ -1400,7 +1187,7 @@ function CustomMappingView({
                       <input
                         type="checkbox"
                         checked={isInDescription}
-                        onChange={(e) => toggleAttributeInDescription(attr, e.target.checked)}
+                        onChange={(e) => handleToggleAttributeInDescription(attr, e.target.checked)}
                         className="w-3.5 h-3.5 rounded border-border text-primary focus:ring-2 focus:ring-primary cursor-pointer"
                       />
                       <span className="text-muted-foreground">
@@ -1445,7 +1232,7 @@ function CustomMappingView({
                 <label className="text-xs text-muted-foreground mb-1.5 block">Font Family</label>
                 <select
                   value={currentMapping.heading.style.fontFamily}
-                  onChange={(e) => updateStyle("heading", "heading", "fontFamily", e.target.value)}
+                  onChange={(e) => handleUpdateStyle("heading", "heading", "fontFamily", e.target.value)}
                   className="w-full px-2 py-1.5 border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                   style={{ fontFamily: currentMapping.heading.style.fontFamily }}
                 >
@@ -1462,7 +1249,7 @@ function CustomMappingView({
                   <label className="text-xs text-muted-foreground mb-1.5 block">Font Size</label>
                   <div className="flex items-center gap-1">
                     <button
-                      onClick={() => updateStyle("heading", "heading", "fontSize", Math.max(20, currentMapping.heading.style.fontSize - 1))}
+                      onClick={() => handleUpdateStyle("heading", "heading", "fontSize", Math.max(20, currentMapping.heading.style.fontSize - 1))}
                       className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
                     >
                       −
@@ -1472,11 +1259,11 @@ function CustomMappingView({
                       min="20"
                       max="60"
                       value={currentMapping.heading.style.fontSize}
-                      onChange={(e) => updateStyle("heading", "heading", "fontSize", Math.max(20, Math.min(60, parseInt(e.target.value) || 20)))}
+                      onChange={(e) => handleUpdateStyle("heading", "heading", "fontSize", Math.max(20, Math.min(60, parseInt(e.target.value) || 20)))}
                       className="w-14 px-2 py-1 text-center border border-border rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                     <button
-                      onClick={() => updateStyle("heading", "heading", "fontSize", Math.min(60, currentMapping.heading.style.fontSize + 1))}
+                      onClick={() => handleUpdateStyle("heading", "heading", "fontSize", Math.min(60, currentMapping.heading.style.fontSize + 1))}
                       className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
                     >
                       +
@@ -1490,7 +1277,7 @@ function CustomMappingView({
                   <input
                     type="color"
                     value={currentMapping.heading.style.color}
-                    onChange={(e) => updateStyle("heading", "heading", "color", e.target.value)}
+                    onChange={(e) => handleUpdateStyle("heading", "heading", "color", e.target.value)}
                     className="w-12 h-7 border border-border rounded cursor-pointer"
                   />
                 </div>
@@ -1509,7 +1296,7 @@ function CustomMappingView({
                     <label className="text-xs text-muted-foreground mb-1.5 block">Font Size</label>
                     <div className="flex items-center gap-1">
                       <button
-                        onClick={() => updateStyle("attribute", "heading2", "fontSize", Math.max(16, (currentMapping.attributes.heading2?.style.fontSize || 24) - 1))}
+                        onClick={() => handleUpdateStyle("attribute", "heading2", "fontSize", Math.max(16, (currentMapping.attributes.heading2?.style.fontSize || 24) - 1))}
                         className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
                       >
                         −
@@ -1519,11 +1306,11 @@ function CustomMappingView({
                         min="16"
                         max="48"
                         value={currentMapping.attributes.heading2?.style.fontSize || 24}
-                        onChange={(e) => updateStyle("attribute", "heading2", "fontSize", Math.max(16, Math.min(48, parseInt(e.target.value) || 16)))}
+                        onChange={(e) => handleUpdateStyle("attribute", "heading2", "fontSize", Math.max(16, Math.min(48, parseInt(e.target.value) || 16)))}
                         className="w-14 px-2 py-1 text-center border border-border rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                       />
                       <button
-                        onClick={() => updateStyle("attribute", "heading2", "fontSize", Math.min(48, (currentMapping.attributes.heading2?.style.fontSize || 24) + 1))}
+                        onClick={() => handleUpdateStyle("attribute", "heading2", "fontSize", Math.min(48, (currentMapping.attributes.heading2?.style.fontSize || 24) + 1))}
                         className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
                       >
                         +
@@ -1549,7 +1336,7 @@ function CustomMappingView({
                 <label className="text-xs text-muted-foreground mb-1.5 block">Font Family</label>
                 <select
                   value={currentMapping.descriptionTop.style.fontFamily}
-                  onChange={(e) => updateStyle("descriptionTop", "descriptionTop", "fontFamily", e.target.value)}
+                  onChange={(e) => handleUpdateStyle("descriptionTop", "descriptionTop", "fontFamily", e.target.value)}
                   className="w-full px-2 py-1.5 border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                   style={{ fontFamily: currentMapping.descriptionTop.style.fontFamily }}
                 >
@@ -1566,7 +1353,7 @@ function CustomMappingView({
                   <label className="text-xs text-muted-foreground mb-1.5 block">Font Size</label>
                   <div className="flex items-center gap-1">
                     <button
-                      onClick={() => updateStyle("descriptionTop", "descriptionTop", "fontSize", Math.max(10, currentMapping.descriptionTop.style.fontSize - 1))}
+                      onClick={() => handleUpdateStyle("descriptionTop", "descriptionTop", "fontSize", Math.max(10, currentMapping.descriptionTop.style.fontSize - 1))}
                       className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
                     >
                       −
@@ -1576,11 +1363,11 @@ function CustomMappingView({
                       min="10"
                       max="24"
                       value={currentMapping.descriptionTop.style.fontSize}
-                      onChange={(e) => updateStyle("descriptionTop", "descriptionTop", "fontSize", Math.max(10, Math.min(24, parseInt(e.target.value) || 10)))}
+                      onChange={(e) => handleUpdateStyle("descriptionTop", "descriptionTop", "fontSize", Math.max(10, Math.min(24, parseInt(e.target.value) || 10)))}
                       className="w-14 px-2 py-1 text-center border border-border rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                     <button
-                      onClick={() => updateStyle("descriptionTop", "descriptionTop", "fontSize", Math.min(24, currentMapping.descriptionTop.style.fontSize + 1))}
+                      onClick={() => handleUpdateStyle("descriptionTop", "descriptionTop", "fontSize", Math.min(24, currentMapping.descriptionTop.style.fontSize + 1))}
                       className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
                     >
                       +
@@ -1594,7 +1381,7 @@ function CustomMappingView({
                   <input
                     type="color"
                     value={currentMapping.descriptionTop.style.color}
-                    onChange={(e) => updateStyle("descriptionTop", "descriptionTop", "color", e.target.value)}
+                    onChange={(e) => handleUpdateStyle("descriptionTop", "descriptionTop", "color", e.target.value)}
                     className="w-12 h-7 border border-border rounded cursor-pointer"
                   />
                 </div>
@@ -1611,7 +1398,7 @@ function CustomMappingView({
                 <label className="text-xs text-muted-foreground mb-1.5 block">Font Family</label>
                 <select
                   value={currentMapping.attributes.student_name?.style.fontFamily || "Great Vibes"}
-                  onChange={(e) => updateStyle("attribute", "student_name", "fontFamily", e.target.value)}
+                  onChange={(e) => handleUpdateStyle("attribute", "student_name", "fontFamily", e.target.value)}
                   className="w-full px-2 py-1.5 border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                   style={{ fontFamily: currentMapping.attributes.student_name?.style.fontFamily || "Great Vibes" }}
                 >
@@ -1628,7 +1415,7 @@ function CustomMappingView({
                   <label className="text-xs text-muted-foreground mb-1.5 block">Font Size</label>
                   <div className="flex items-center gap-1">
                     <button
-                      onClick={() => updateStyle("attribute", "student_name", "fontSize", Math.max(18, (currentMapping.attributes.student_name?.style.fontSize || 28) - 1))}
+                      onClick={() => handleUpdateStyle("attribute", "student_name", "fontSize", Math.max(18, (currentMapping.attributes.student_name?.style.fontSize || 28) - 1))}
                       className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
                     >
                       −
@@ -1638,11 +1425,11 @@ function CustomMappingView({
                       min="18"
                       max="48"
                       value={currentMapping.attributes.student_name?.style.fontSize || 28}
-                      onChange={(e) => updateStyle("attribute", "student_name", "fontSize", Math.max(18, Math.min(48, parseInt(e.target.value) || 18)))}
+                      onChange={(e) => handleUpdateStyle("attribute", "student_name", "fontSize", Math.max(18, Math.min(48, parseInt(e.target.value) || 18)))}
                       className="w-14 px-2 py-1 text-center border border-border rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                     <button
-                      onClick={() => updateStyle("attribute", "student_name", "fontSize", Math.min(48, (currentMapping.attributes.student_name?.style.fontSize || 28) + 1))}
+                      onClick={() => handleUpdateStyle("attribute", "student_name", "fontSize", Math.min(48, (currentMapping.attributes.student_name?.style.fontSize || 28) + 1))}
                       className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
                     >
                       +
@@ -1656,7 +1443,7 @@ function CustomMappingView({
                   <input
                     type="color"
                     value={currentMapping.attributes.student_name?.style.color || "#111827"}
-                    onChange={(e) => updateStyle("attribute", "student_name", "color", e.target.value)}
+                    onChange={(e) => handleUpdateStyle("attribute", "student_name", "color", e.target.value)}
                     className="w-12 h-7 border border-border rounded cursor-pointer"
                   />
                 </div>
@@ -1694,7 +1481,7 @@ function CustomMappingView({
                       <label className="text-xs text-muted-foreground mb-1.5 block">Font Family</label>
                       <select
                         value={attrStyle.fontFamily}
-                        onChange={(e) => updateStyle("attribute", attr, "fontFamily", e.target.value)}
+                        onChange={(e) => handleUpdateStyle("attribute", attr, "fontFamily", e.target.value)}
                         className="w-full px-2 py-1.5 border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                         style={{ fontFamily: attrStyle.fontFamily }}
                       >
@@ -1711,7 +1498,7 @@ function CustomMappingView({
                         <label className="text-xs text-muted-foreground mb-1.5 block">Font Size</label>
                         <div className="flex items-center gap-1">
                           <button
-                            onClick={() => updateStyle("attribute", attr, "fontSize", Math.max(10, attrStyle.fontSize - 1))}
+                            onClick={() => handleUpdateStyle("attribute", attr, "fontSize", Math.max(10, attrStyle.fontSize - 1))}
                             className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
                           >
                             −
@@ -1721,11 +1508,11 @@ function CustomMappingView({
                             min="10"
                             max="32"
                             value={attrStyle.fontSize}
-                            onChange={(e) => updateStyle("attribute", attr, "fontSize", Math.max(10, Math.min(32, parseInt(e.target.value) || 10)))}
+                            onChange={(e) => handleUpdateStyle("attribute", attr, "fontSize", Math.max(10, Math.min(32, parseInt(e.target.value) || 10)))}
                             className="w-14 px-2 py-1 text-center border border-border rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                           />
                           <button
-                            onClick={() => updateStyle("attribute", attr, "fontSize", Math.min(32, attrStyle.fontSize + 1))}
+                            onClick={() => handleUpdateStyle("attribute", attr, "fontSize", Math.min(32, attrStyle.fontSize + 1))}
                             className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
                           >
                             +
@@ -1739,7 +1526,7 @@ function CustomMappingView({
                         <input
                           type="color"
                           value={attrStyle.color}
-                          onChange={(e) => updateStyle("attribute", attr, "color", e.target.value)}
+                          onChange={(e) => handleUpdateStyle("attribute", attr, "color", e.target.value)}
                           className="w-12 h-7 border border-border rounded cursor-pointer"
                         />
                       </div>
@@ -1759,7 +1546,7 @@ function CustomMappingView({
                 <label className="text-xs text-muted-foreground mb-1.5 block">Font Family</label>
                 <select
                   value={currentMapping.descriptionBody.style.fontFamily}
-                  onChange={(e) => updateStyle("descriptionBody", "descriptionBody", "fontFamily", e.target.value)}
+                  onChange={(e) => handleUpdateStyle("descriptionBody", "descriptionBody", "fontFamily", e.target.value)}
                   className="w-full px-2 py-1.5 border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                   style={{ fontFamily: currentMapping.descriptionBody.style.fontFamily }}
                 >
@@ -1776,7 +1563,7 @@ function CustomMappingView({
                   <label className="text-xs text-muted-foreground mb-1.5 block">Font Size</label>
                   <div className="flex items-center gap-1">
                     <button
-                      onClick={() => updateStyle("descriptionBody", "descriptionBody", "fontSize", Math.max(10, currentMapping.descriptionBody.style.fontSize - 1))}
+                      onClick={() => handleUpdateStyle("descriptionBody", "descriptionBody", "fontSize", Math.max(10, currentMapping.descriptionBody.style.fontSize - 1))}
                       className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
                     >
                       −
@@ -1786,11 +1573,11 @@ function CustomMappingView({
                       min="10"
                       max="24"
                       value={currentMapping.descriptionBody.style.fontSize}
-                      onChange={(e) => updateStyle("descriptionBody", "descriptionBody", "fontSize", Math.max(10, Math.min(24, parseInt(e.target.value) || 10)))}
+                      onChange={(e) => handleUpdateStyle("descriptionBody", "descriptionBody", "fontSize", Math.max(10, Math.min(24, parseInt(e.target.value) || 10)))}
                       className="w-14 px-2 py-1 text-center border border-border rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                     <button
-                      onClick={() => updateStyle("descriptionBody", "descriptionBody", "fontSize", Math.min(24, currentMapping.descriptionBody.style.fontSize + 1))}
+                      onClick={() => handleUpdateStyle("descriptionBody", "descriptionBody", "fontSize", Math.min(24, currentMapping.descriptionBody.style.fontSize + 1))}
                       className="w-7 h-7 flex items-center justify-center border border-border rounded bg-background hover:bg-muted transition-colors text-sm font-medium"
                     >
                       +
@@ -1804,7 +1591,7 @@ function CustomMappingView({
                   <input
                     type="color"
                     value={currentMapping.descriptionBody.style.color}
-                    onChange={(e) => updateStyle("descriptionBody", "descriptionBody", "color", e.target.value)}
+                    onChange={(e) => handleUpdateStyle("descriptionBody", "descriptionBody", "color", e.target.value)}
                     className="w-12 h-7 border border-border rounded cursor-pointer"
                   />
                 </div>
@@ -1819,11 +1606,16 @@ function CustomMappingView({
         <div className="bg-card border border-border rounded-lg p-6">
           <h3 className="text-sm font-semibold mb-4 text-foreground">Live Preview</h3>
 
-          <div
-            ref={canvasRef}
-            className="relative w-full aspect-[1.414/1] bg-muted rounded-lg overflow-hidden select-none"
-            style={{ cursor: draggingElement ? "grabbing" : "default", userSelect: "none" }}
-          >
+          {/* Always-mounted preview with skeleton overlay */}
+          <div className="relative w-full aspect-[1.414/1] bg-muted rounded-lg overflow-hidden">
+            
+            {/* Skeleton overlay (visible on mount and certificateType switch) */}
+            {/* Preview content */}
+            <div
+              ref={canvasRef}
+              className="relative w-full h-full select-none"
+              style={{ cursor: draggingElement ? "grabbing" : "default", userSelect: "none" }}
+            >
             <img
               src={templateUrl}
               alt="Base Certificate"
@@ -1995,6 +1787,8 @@ function CustomMappingView({
               />
             </div>
           </div>
+          </div>
+
         </div>
 
         {/* Save Button - Outside preview, bottom right */}
@@ -2003,16 +1797,24 @@ function CustomMappingView({
             <div className="flex flex-col items-end">
               <button
                 onClick={handleSaveMapping}
-                disabled={!allAttributesReady || (!hasUnsavedChanges && saveSuccess)}
+                disabled={!hasUnsavedChanges || isSaving}
                 className={`px-6 py-2.5 rounded-lg font-medium text-sm transition-all shadow-lg ${
                   saveSuccess && !hasUnsavedChanges
                     ? "bg-green-600 text-white cursor-default"
-                    : allAttributesReady && hasUnsavedChanges
+                    : hasUnsavedChanges && !isSaving
                     ? "bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
                     : "bg-muted text-muted-foreground cursor-not-allowed opacity-60"
                 }`}
               >
-                {saveSuccess && !hasUnsavedChanges ? (
+                {isSaving ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Saving...
+                  </span>
+                ) : saveSuccess && !hasUnsavedChanges ? (
                   <span className="flex items-center gap-2">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -2028,9 +1830,9 @@ function CustomMappingView({
                   </span>
                 )}
               </button>
-              {!allAttributesReady && (
+              {!allAttributesReady && hasUnsavedChanges && (
                 <p className="text-xs text-orange-600 mt-2">
-                  Configure all attributes (green) to save
+                  Some attributes in description are missing placeholders
                 </p>
               )}
             </div>

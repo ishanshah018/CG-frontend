@@ -355,40 +355,36 @@ throw error;
  * Save certificate mapping
  * Sends certificate mapping configuration to the server
  */
-export async function saveCertificateMapping(): Promise<{ success: boolean; message: string }> {
-const token = sessionStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+export async function saveCertificateMapping(mappings: any): Promise<{ success: boolean; message: string }> {
+  const token = sessionStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
 
-if (!token) {
-throw new Error("No authentication token found");
-}
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
 
-// Get mapping data from sessionStorage
-const mappingData = sessionStorage.getItem("certificate_mapping");
-if (!mappingData) {
-throw new Error("No certificate mapping found in session");
-}
+  if (!mappings) {
+    throw new Error("No certificate mapping data provided");
+  }
 
-const mappings = JSON.parse(mappingData);
+  const response = await fetch(
+    `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CERTIFICATES.MAPPING.SAVE}`,
+    {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ mappings }),
+    }
+  );
 
-const response = await fetch(
-`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CERTIFICATES.MAPPING.SAVE}`,
-{
-method: "POST",
-headers: {
-"Authorization": `Bearer ${token}`,
-"Content-Type": "application/json",
-},
-body: JSON.stringify({ mappings }),
-}
-);
+  const data = await response.json();
 
-const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to save certificate mapping");
+  }
 
-if (!response.ok) {
-throw new Error(data.message || "Failed to save certificate mapping");
-}
-
-return data;
+  return data;
 }
 
 /**

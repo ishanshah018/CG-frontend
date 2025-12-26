@@ -6,16 +6,6 @@ import { fetchCertificateAttributes, getCertificateMapping, getBaseCertificateTe
 import Loader from "@/components/loader"
 import { GenerateCertificate } from "@/components/certificate/generate-certificate"
 
-// Default mapping structure for free plan
-const DEFAULT_MAPPING = {
-  webinar: {
-    student_name: { x: 100, y: 200, fontSize: 24, fontFamily: "Arial", color: "#000000" },
-    webinar_name: { x: 100, y: 250, fontSize: 20, fontFamily: "Arial", color: "#000000" },
-    host_name: { x: 100, y: 300, fontSize: 18, fontFamily: "Arial", color: "#000000" },
-    webinar_date: { x: 100, y: 350, fontSize: 18, fontFamily: "Arial", color: "#000000" },
-  },
-}
-
 export default function WebinarPage() {
   const router = useRouter()
   const [attributes, setAttributes] = useState<string[] | null>(null)
@@ -59,39 +49,32 @@ export default function WebinarPage() {
         // Store template URL
         setTemplateUrl(baseCertResponse.data.template_url)
         
-        // Step 2: Check if certificate mapping exists (already called on page entry)
+        // Step 2: Check if certificate mapping exists
         const mappingResponse = await getCertificateMapping()
         
         if (!mappingResponse.success) {
-          // Check if user is on free plan
-          const planData = sessionStorage.getItem("plan")
-          const plan = planData ? JSON.parse(planData) : null
+          setRedirectMessage('Mapping Not Found')
+          setIsLoading(false)
           
-          if (plan && plan.name === "free") {
-            // Use default mapping for free plan
-            setMapping(DEFAULT_MAPPING.webinar)
-          } else {
-            // Show message and redirect for non-free plans
-            setRedirectMessage('Mapping Not Found')
-            setIsLoading(false)
-            
-            const toastEvent = new CustomEvent('showToast', {
-              detail: {
-                message: 'Custom certificate mapping not found. Please configure mapping first.',
-                type: 'error'
-              }
-            })
-            window.dispatchEvent(toastEvent)
-            
-            setTimeout(() => {
-              router.push('/certificate-mapping')
-            }, 1500)
-            return
-          }
-        } else {
-          // Use custom mapping from API - extract webinar mapping
-          setMapping(mappingResponse.data?.webinar || mappingResponse.data)
+          const toastEvent = new CustomEvent('showToast', {
+            detail: {
+              message: 'Custom certificate mapping not found. Please configure mapping first.',
+              type: 'error'
+            }
+          })
+          window.dispatchEvent(toastEvent)
+          
+          setTimeout(() => {
+            router.push('/certificate-mapping')
+          }, 1500)
+          return
         }
+        
+        // Store mapping in sessionStorage for later use
+        sessionStorage.setItem('certificate_mapping', JSON.stringify(mappingResponse.data))
+        
+        // Extract webinar mapping
+        setMapping(mappingResponse.data?.webinar || mappingResponse.data)
         
         // Fetch attributes from sessionStorage or API
         const data = await fetchCertificateAttributes()

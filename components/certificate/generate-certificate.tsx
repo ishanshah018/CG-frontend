@@ -10,6 +10,7 @@ interface StyleObject {
   fontFamily: string
   fontSize: number
   color: string
+  fontWeight?: number
 }
 
 interface TextBlock {
@@ -58,12 +59,19 @@ const formatDateForDisplay = (dateString: string): string => {
   }
 }
 
-// Capitalize first letter of each word
-const capitalizeWords = (str: string): string => {
+// Smart capitalize: respect all-caps, otherwise capitalize first letter of each word
+const smartCapitalize = (str: string): string => {
   if (!str) return str
+  
+  // If entire string is uppercase, user wants ALL CAPS - keep as-is
+  if (str === str.toUpperCase() && str !== str.toLowerCase()) {
+    return str
+  }
+  
+  // Otherwise, capitalize first letter of each word
   return str
     .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
 }
 
@@ -143,8 +151,8 @@ export function GenerateCertificate({
          key.toLowerCase().includes('host')) && 
         formatted[key]
       ) {
-        // Auto-capitalize name fields (student_name, course_name, webinar_name, workshop_name, host_name, etc.)
-        formatted[key] = capitalizeWords(formatted[key])
+        // Smart capitalize: only fix all-lowercase, respect intentional casing
+        formatted[key] = smartCapitalize(formatted[key])
       }
     })
     return formatted

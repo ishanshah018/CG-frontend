@@ -1,11 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
+import { normalizeCertificateMappings } from "@/lib/certificate-utils"
 
 interface StyleObject {
 fontFamily: string
 fontSize: number
 color: string
+fontWeight?: number
 }
 
 interface TextBlock {
@@ -53,6 +55,10 @@ const [imageError, setImageError] = useState(false)
 const [imageLoaded, setImageLoaded] = useState(false)
 const [minimumSkeletonTimePassed, setMinimumSkeletonTimePassed] = useState(false)
 
+// Normalize mapping for rendering ONLY (applies backend font weight rules)
+// IMPORTANT: Does NOT mutate original mapping prop
+const normalizedMapping = useMemo(() => normalizeCertificateMappings(mapping), [mapping])
+
 // Intentional 1.3-second minimum delay for premium UX
 useEffect(() => {
 const timer = setTimeout(() => {
@@ -86,10 +92,10 @@ return (
 
 // Get draggable attributes (those NOT in attributesInDescription)
 // Exclude heading2 as it's a static text block, not a dynamic attribute
-const draggableAttributes = Object.keys(mapping.attributes || {}).filter(
+const draggableAttributes = Object.keys(normalizedMapping.attributes || {}).filter(
 (attr) => 
     attr !== "heading2" && 
-    !mapping.attributesInDescription?.includes(attr)
+    !normalizedMapping.attributesInDescription?.includes(attr)
 )
 
 return (
@@ -192,8 +198,8 @@ return (
             isDraggable ? "cursor-grab active:cursor-grabbing" : ""
         } ${draggingElement === "heading" ? "opacity-70" : ""}`}
         style={{
-            left: `${mapping.heading.x}%`,
-            top: `${mapping.heading.y}%`,
+            left: `${normalizedMapping.heading.x}%`,
+            top: `${normalizedMapping.heading.y}%`,
             userSelect: "none",
         }}
         onMouseDown={isDraggable && onDragStart ? (e) => onDragStart(e, "heading") : undefined}
@@ -203,31 +209,31 @@ return (
             isDraggable ? "hover:bg-primary/10 px-2 py-1 rounded" : ""
             }`}
             style={{
-            fontFamily: mapping.heading.style.fontFamily,
-            fontSize: `${mapping.heading.style.fontSize}px`,
-            color: mapping.heading.style.color,
-            fontWeight: "normal",
+            fontFamily: normalizedMapping.heading.style.fontFamily,
+            fontSize: `${normalizedMapping.heading.style.fontSize}px`,
+            color: normalizedMapping.heading.style.color,
+            fontWeight: normalizedMapping.heading.style.fontWeight || 700,
             textAlign: "center",
             userSelect: "none",
             WebkitFontSmoothing: "antialiased",
             MozOsxFontSmoothing: "grayscale",
             }}
         >
-            {mapping.heading.text.includes("<br>")
-            ? mapping.heading.text.split("<br>")[0]
-            : mapping.heading.text}
+            {normalizedMapping.heading.text.includes("<br>")
+            ? normalizedMapping.heading.text.split("<br>")[0]
+            : normalizedMapping.heading.text}
         </div>
         </div>
 
         {/* Heading 2 (derived from heading text split, if exists) */}
-        {mapping.heading.text.includes("<br>") && mapping.attributes.heading2 && (
+        {normalizedMapping.heading.text.includes("<br>") && normalizedMapping.attributes.heading2 && (
         <div
             className={`absolute transform -translate-x-1/2 -translate-y-1/2 select-none ${
             isDraggable ? "cursor-grab active:cursor-grabbing" : ""
             } ${draggingElement === "heading2" ? "opacity-70" : ""}`}
             style={{
-            left: `${mapping.attributes.heading2.x}%`,
-            top: `${mapping.attributes.heading2.y}%`,
+            left: `${normalizedMapping.attributes.heading2.x}%`,
+            top: `${normalizedMapping.attributes.heading2.y}%`,
             userSelect: "none",
             }}
             onMouseDown={isDraggable && onDragStart ? (e) => onDragStart(e, "heading2") : undefined}
@@ -237,17 +243,17 @@ return (
                 isDraggable ? "hover:bg-primary/10 px-2 py-1 rounded" : ""
             }`}
             style={{
-                fontFamily: mapping.heading.style.fontFamily,
-                fontSize: `${mapping.attributes.heading2.style.fontSize}px`,
-                color: mapping.heading.style.color,
-                fontWeight: "normal",
+                fontFamily: normalizedMapping.heading.style.fontFamily,
+                fontSize: `${normalizedMapping.attributes.heading2.style.fontSize}px`,
+                color: normalizedMapping.heading.style.color,
+                fontWeight: normalizedMapping.attributes.heading2.style.fontWeight || 600,
                 textAlign: "center",
                 userSelect: "none",
                 WebkitFontSmoothing: "antialiased",
                 MozOsxFontSmoothing: "grayscale",
             }}
             >
-            {mapping.heading.text.split("<br>")[1] || ""}
+            {normalizedMapping.heading.text.split("<br>")[1] || ""}
             </div>
         </div>
         )}
@@ -258,8 +264,8 @@ return (
             isDraggable ? "cursor-grab active:cursor-grabbing" : ""
         } ${draggingElement === "descriptionTop" ? "opacity-70" : ""}`}
         style={{
-            left: `${mapping.descriptionTop.x}%`,
-            top: `${mapping.descriptionTop.y}%`,
+            left: `${normalizedMapping.descriptionTop.x}%`,
+            top: `${normalizedMapping.descriptionTop.y}%`,
             userSelect: "none",
         }}
         onMouseDown={isDraggable && onDragStart ? (e) => onDragStart(e, "descriptionTop") : undefined}
@@ -269,23 +275,23 @@ return (
             isDraggable ? "hover:bg-primary/10 px-2 py-1 rounded" : ""
             }`}
             style={{
-            fontFamily: mapping.descriptionTop.style.fontFamily,
-            fontSize: `${mapping.descriptionTop.style.fontSize}px`,
-            color: mapping.descriptionTop.style.color,
-            fontWeight: "normal",
+            fontFamily: normalizedMapping.descriptionTop.style.fontFamily,
+            fontSize: `${normalizedMapping.descriptionTop.style.fontSize}px`,
+            color: normalizedMapping.descriptionTop.style.color,
+            fontWeight: normalizedMapping.descriptionTop.style.fontWeight || 400,
             textAlign: "center",
             userSelect: "none",
             WebkitFontSmoothing: "antialiased",
             MozOsxFontSmoothing: "grayscale",
             }}
         >
-            {mapping.descriptionTop.text}
+            {normalizedMapping.descriptionTop.text}
         </div>
         </div>
 
         {/* All Draggable Attributes (excluding those in description) */}
         {draggableAttributes.map((attr) => {
-        const pos = mapping.attributes[attr]
+        const pos = normalizedMapping.attributes[attr]
         if (!pos) return null
 
         const value = formData[attr] || `{${attr}}`
@@ -307,7 +313,7 @@ return (
                 fontFamily: pos.style.fontFamily,
                 fontSize: `${pos.style.fontSize}px`,
                 color: pos.style.color,
-                fontWeight: "normal",
+                fontWeight: pos.style.fontWeight || 500,
                 textAlign: "center",
                 userSelect: "none",
                 WebkitFontSmoothing: "antialiased",
@@ -326,8 +332,8 @@ return (
             isDraggable ? "cursor-grab active:cursor-grabbing" : ""
         } ${draggingElement === "descriptionBody" ? "opacity-70" : ""}`}
         style={{
-            left: `${mapping.descriptionBody.x}%`,
-            top: `${mapping.descriptionBody.y}%`,
+            left: `${normalizedMapping.descriptionBody.x}%`,
+            top: `${normalizedMapping.descriptionBody.y}%`,
             userSelect: "none",
         }}
         onMouseDown={isDraggable && onDragStart ? (e) => onDragStart(e, "descriptionBody") : undefined}
@@ -337,20 +343,24 @@ return (
             isDraggable ? "hover:bg-primary/10 px-2 py-1 rounded" : ""
             }`}
             style={{
-            fontFamily: mapping.descriptionBody.style.fontFamily,
-            fontSize: `${mapping.descriptionBody.style.fontSize}px`,
-            color: mapping.descriptionBody.style.color,
-            fontWeight: "normal",
+            fontFamily: normalizedMapping.descriptionBody.style.fontFamily,
+            fontSize: `${normalizedMapping.descriptionBody.style.fontSize}px`,
+            color: normalizedMapping.descriptionBody.style.color,
+            fontWeight: normalizedMapping.descriptionBody.style.fontWeight || 400,
             textAlign: "center",
             userSelect: "none",
             WebkitFontSmoothing: "antialiased",
             MozOsxFontSmoothing: "grayscale",
             }}
             dangerouslySetInnerHTML={{
-            __html: mapping.descriptionBody.text
+            __html: normalizedMapping.descriptionBody.text
                 .replace(/<br>/gi, '<br/>')
                 .replace(/\{([^}]+)\}/g, (match, attrName) => {
-                return formData[attrName] || match
+                const attributeStyle = normalizedMapping.attributes[attrName]?.style
+                const attributeFontWeight = attributeStyle?.fontWeight || 500
+                const value = formData[attrName] || match
+                // Apply bold fontWeight (600) for better visibility in description
+                return `<span style="font-weight: 600 !important; display: inline;">${value}</span>`
                 })
             }}
         />

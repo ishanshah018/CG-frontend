@@ -1,11 +1,12 @@
 "use client"
 
 import { useAuth } from "@/lib/auth"
-import React, { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { getBaseCertificateTemplate, fetchCertificateAttributes, saveCertificateMapping, getCertificateMapping } from "@/lib/api/certificates"
 import { Monitor, User, BookOpen, Calendar, Video, UserCircle, Briefcase } from "lucide-react"
 import Loader from "@/components/loader"
+import { normalizeCertificateMappings } from "@/lib/certificate-utils"
 
 // Types
 type CertificateType = "course" | "webinar" | "workshop"
@@ -14,6 +15,7 @@ interface StyleObject {
   fontFamily: string
   fontSize: number
   color: string
+  fontWeight?: number
 }
 
 interface TextBlock {
@@ -985,6 +987,10 @@ function CustomMappingView({
   if (!mappingDraft || !mappingDraft[certificateType]) return null
 
   const currentMapping = mappingDraft[certificateType]
+  
+  // Normalize mapping for rendering ONLY (applies backend font weight rules)
+  // IMPORTANT: Does NOT mutate currentMapping - only used for preview display
+  const normalizedMapping = useMemo(() => normalizeCertificateMappings(currentMapping), [currentMapping])
 
   // Safety check for data structure
   if (!currentMapping.descriptionTop || !currentMapping.descriptionBody) {
@@ -1651,27 +1657,28 @@ function CustomMappingView({
               <div 
                 className="text-center font-bold whitespace-nowrap px-2 py-1 hover:bg-primary/10 rounded transition-colors select-none"
                 style={{
-                  fontFamily: currentMapping.heading.style.fontFamily,
-                  fontSize: `${currentMapping.heading.style.fontSize}px`,
-                  color: currentMapping.heading.style.color,
+                  fontFamily: normalizedMapping.heading.style.fontFamily,
+                  fontSize: `${normalizedMapping.heading.style.fontSize}px`,
+                  color: normalizedMapping.heading.style.color,
+                  fontWeight: normalizedMapping.heading.style.fontWeight || 700,
                   userSelect: "none",
                 }}
               >
-                {currentMapping.heading.text.includes("<br>") 
-                  ? currentMapping.heading.text.split("<br>")[0]
-                  : currentMapping.heading.text}
+                {normalizedMapping.heading.text.includes("<br>") 
+                  ? normalizedMapping.heading.text.split("<br>")[0]
+                  : normalizedMapping.heading.text}
               </div>
             </div>
 
             {/* Heading 2 (if exists) */}
-            {currentMapping.heading.text.includes("<br>") && (
+            {normalizedMapping.heading.text.includes("<br>") && (
               <div
                 className={`absolute transform -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing select-none ${
                   draggingElement === "heading2" ? "opacity-70" : ""
                 }`}
                 style={{
-                  left: `${currentMapping.attributes.heading2?.x || 50}%`,
-                  top: `${currentMapping.attributes.heading2?.y || 26}%`,
+                  left: `${normalizedMapping.attributes.heading2?.x || 50}%`,
+                  top: `${normalizedMapping.attributes.heading2?.y || 26}%`,
                   userSelect: "none",
                 }}
                 onMouseDown={(e) => handleDragStart(e, "heading2")}
@@ -1679,13 +1686,14 @@ function CustomMappingView({
                 <div 
                   className="text-center whitespace-nowrap px-2 py-1 hover:bg-primary/10 rounded transition-colors select-none"
                   style={{
-                    fontFamily: currentMapping.heading.style.fontFamily,
-                    fontSize: `${currentMapping.attributes.heading2?.style.fontSize || 24}px`,
-                    color: currentMapping.heading.style.color,
+                    fontFamily: normalizedMapping.heading.style.fontFamily,
+                    fontSize: `${normalizedMapping.attributes.heading2?.style.fontSize || 24}px`,
+                    color: normalizedMapping.heading.style.color,
+                    fontWeight: normalizedMapping.attributes.heading2?.style.fontWeight || 600,
                     userSelect: "none",
                   }}
                 >
-                  {currentMapping.heading.text.split("<br>")[1] || ""}
+                  {normalizedMapping.heading.text.split("<br>")[1] || ""}
                 </div>
               </div>
             )}
@@ -1696,8 +1704,8 @@ function CustomMappingView({
                 draggingElement === "descriptionTop" ? "opacity-70" : ""
               }`}
               style={{
-                left: `${currentMapping.descriptionTop.x}%`,
-                top: `${currentMapping.descriptionTop.y}%`,
+                left: `${normalizedMapping.descriptionTop.x}%`,
+                top: `${normalizedMapping.descriptionTop.y}%`,
                 userSelect: "none",
               }}
               onMouseDown={(e) => handleDragStart(e, "descriptionTop")}
@@ -1705,29 +1713,31 @@ function CustomMappingView({
               <div 
                 className="text-center px-2 py-1 hover:bg-primary/10 rounded transition-colors select-none"
                 style={{
-                  fontFamily: currentMapping.descriptionTop.style.fontFamily,
-                  fontSize: `${currentMapping.descriptionTop.style.fontSize}px`,
-                  color: currentMapping.descriptionTop.style.color,
+                  fontFamily: normalizedMapping.descriptionTop.style.fontFamily,
+                  fontSize: `${normalizedMapping.descriptionTop.style.fontSize}px`,
+                  color: normalizedMapping.descriptionTop.style.color,
+                  fontWeight: normalizedMapping.descriptionTop.style.fontWeight || 400,
                   userSelect: "none",
                 }}
               >
-                {currentMapping.descriptionTop.text}
+                {normalizedMapping.descriptionTop.text}
               </div>
             </div>
 
             {/* All Draggable Attributes (excluding those in description) */}
             {draggableAttributes.map((attr) => {
-              const pos = currentMapping.attributes[attr]
+              const pos = normalizedMapping.attributes[attr]
               if (!pos) return null
               
               // Determine style based on attribute type
               let attrStyle = pos.style
               if (attr === 'student_name') {
                 // Student name always uses its own style
-                attrStyle = currentMapping.attributes.student_name?.style || {
+                attrStyle = normalizedMapping.attributes.student_name?.style || {
                   fontFamily: "Great Vibes",
                   fontSize: 28,
-                  color: "#111827"
+                  color: "#111827",
+                  fontWeight: 600
                 }
               }
               // Other draggable attributes use their stored style
@@ -1747,6 +1757,7 @@ function CustomMappingView({
                       fontFamily: attrStyle.fontFamily,
                       fontSize: `${attrStyle.fontSize}px`,
                       color: attrStyle.color,
+                      fontWeight: attrStyle.fontWeight || 500,
                       userSelect: "none",
                     }}
                   >
@@ -1762,8 +1773,8 @@ function CustomMappingView({
                 draggingElement === "descriptionBody" ? "opacity-70" : ""
               }`}
               style={{
-                left: `${currentMapping.descriptionBody.x}%`,
-                top: `${currentMapping.descriptionBody.y}%`,
+                left: `${normalizedMapping.descriptionBody.x}%`,
+                top: `${normalizedMapping.descriptionBody.y}%`,
                 userSelect: "none",
               }}
               onMouseDown={(e) => handleDragStart(e, "descriptionBody")}
@@ -1771,17 +1782,21 @@ function CustomMappingView({
               <div 
                 className="text-center px-2 py-1 hover:bg-primary/10 rounded transition-colors select-none"
                 style={{
-                  fontFamily: currentMapping.descriptionBody.style.fontFamily,
-                  fontSize: `${currentMapping.descriptionBody.style.fontSize}px`,
-                  color: currentMapping.descriptionBody.style.color,
+                  fontFamily: normalizedMapping.descriptionBody.style.fontFamily,
+                  fontSize: `${normalizedMapping.descriptionBody.style.fontSize}px`,
+                  color: normalizedMapping.descriptionBody.style.color,
+                  fontWeight: normalizedMapping.descriptionBody.style.fontWeight || 400,
                   userSelect: "none",
                 }}
                 dangerouslySetInnerHTML={{ 
-                  __html: currentMapping.descriptionBody.text
+                  __html: normalizedMapping.descriptionBody.text
                     .replace(/<br>/gi, '<br/>')
                     .replace(/\{([^}]+)\}/g, (match, attrName) => {
-                      // Replace {attribute_name} with actual mock data value
-                      return MOCK_DATA[attrName] || match
+                      const attributeStyle = normalizedMapping.attributes[attrName]?.style
+                      const attributeFontWeight = attributeStyle?.fontWeight || 500
+                      const value = MOCK_DATA[attrName] || match
+                      // Apply bold fontWeight (600) for better visibility in description
+                      return `<span style="font-weight: 600 !important; display: inline;">${value}</span>`
                     })
                 }}
               />

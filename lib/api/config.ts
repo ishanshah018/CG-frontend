@@ -22,6 +22,7 @@ export const API_CONFIG = {
         SAVE: "/api/certificates/mapping/save",
         GET: "/api/certificates/mapping",
       },
+      GENERATE: "/api/certificates/generate",
     },
     // Add more endpoints as needed
     TEMPLATES: "/api/templates",

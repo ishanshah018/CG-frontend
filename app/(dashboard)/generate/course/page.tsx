@@ -138,6 +138,7 @@ export default function CoursePage() {
       attributes={attributes}
       mapping={mapping}
       templateUrl={templateUrl}
+      certificateType="course"
     />
   )
 }

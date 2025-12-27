@@ -138,6 +138,7 @@ export default function WorkshopPage() {
       attributes={attributes}
       mapping={mapping}
       templateUrl={templateUrl}
+      certificateType="workshop"
     />
   )
 }

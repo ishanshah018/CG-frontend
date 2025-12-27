@@ -138,6 +138,7 @@ export default function WebinarPage() {
       attributes={attributes}
       mapping={mapping}
       templateUrl={templateUrl}
+      certificateType="webinar"
     />
   )
 }

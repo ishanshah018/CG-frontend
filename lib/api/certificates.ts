@@ -418,3 +418,57 @@ sessionStorage.setItem("certificate_mapping", JSON.stringify(data.data));
 
 return data;
 }
+
+/**
+ * Generate Certificate Types
+ */
+export type CertificateType = "course" | "webinar" | "workshop";
+
+export interface GenerateCertificateRequest {
+  certificateType: CertificateType;
+  student: {
+    name: string;
+    email: string;
+  };
+  attributes: Record<string, string>;
+}
+
+export interface GenerateCertificateResponse {
+  success: boolean;
+  message: string;
+  data?: any;
+}
+
+/**
+ * Generate Certificate
+ * Generates a certificate based on the provided data
+ */
+export async function generateCertificate(
+  payload: GenerateCertificateRequest
+): Promise<GenerateCertificateResponse> {
+  const token = sessionStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  const response = await fetch(
+    `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CERTIFICATES.GENERATE}`,
+    {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to generate certificate");
+  }
+
+  return data;
+}

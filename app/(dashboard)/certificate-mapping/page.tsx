@@ -984,13 +984,17 @@ function CustomMappingView({
     markDirty()
   }
 
-  if (!mappingDraft || !mappingDraft[certificateType]) return null
-
-  const currentMapping = mappingDraft[certificateType]
-  
   // Normalize mapping for rendering ONLY (applies backend font weight rules)
   // IMPORTANT: Does NOT mutate currentMapping - only used for preview display
-  const normalizedMapping = useMemo(() => normalizeCertificateMappings(currentMapping), [currentMapping])
+  // Note: Must be called before any conditional returns to follow Rules of Hooks
+  const currentMapping = mappingDraft?.[certificateType]
+  const normalizedMapping = useMemo(() => 
+    currentMapping ? normalizeCertificateMappings(currentMapping) : null, 
+    [currentMapping]
+  )
+
+  if (!mappingDraft || !mappingDraft[certificateType]) return null
+  if (!currentMapping) return null
 
   // Safety check for data structure
   if (!currentMapping.descriptionTop || !currentMapping.descriptionBody) {
@@ -1617,11 +1621,17 @@ function CustomMappingView({
             
             {/* Skeleton overlay (visible on mount and certificateType switch) */}
             {/* Preview content */}
+            {!normalizedMapping ? (
+              <div className="flex items-center justify-center h-full">
+                <Loader size="large" />
+              </div>
+            ) : (
             <div
               ref={canvasRef}
               className="relative w-full h-full select-none"
               style={{ cursor: draggingElement ? "grabbing" : "default", userSelect: "none" }}
             >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={templateUrl}
               alt="Base Certificate"
@@ -1792,8 +1802,6 @@ function CustomMappingView({
                   __html: normalizedMapping.descriptionBody.text
                     .replace(/<br>/gi, '<br/>')
                     .replace(/\{([^}]+)\}/g, (match, attrName) => {
-                      const attributeStyle = normalizedMapping.attributes[attrName]?.style
-                      const attributeFontWeight = attributeStyle?.fontWeight || 500
                       const value = MOCK_DATA[attrName] || match
                       // Apply bold fontWeight (600) for better visibility in description
                       return `<span style="font-weight: 600 !important; display: inline;">${value}</span>`
@@ -1802,6 +1810,7 @@ function CustomMappingView({
               />
             </div>
           </div>
+            )}
           </div>
 
         </div>

@@ -5,6 +5,25 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { CertificatePreview } from "./certificate-preview"
 import { CertificateActionTooltip } from "./certificate-action-tooltip"
+import { generateCertificate, type CertificateType } from "@/lib/api/certificates"
+
+// Loading Dots Animation Component
+const LoadingDots = () => (
+  <span className="inline-flex gap-1 ml-2">
+    <span 
+      className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" 
+      style={{ animationDelay: "0ms", animationDuration: "0.6s" }}
+    />
+    <span 
+      className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" 
+      style={{ animationDelay: "150ms", animationDuration: "0.6s" }}
+    />
+    <span 
+      className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" 
+      style={{ animationDelay: "300ms", animationDuration: "0.6s" }}
+    />
+  </span>
+)
 
 interface StyleObject {
   fontFamily: string
@@ -39,6 +58,7 @@ interface GenerateCertificateProps {
   attributes: string[]
   mapping: CertificateMapping
   templateUrl: string
+  certificateType: CertificateType
 }
 
 // Format date to "Month Day, Year" format
@@ -79,6 +99,7 @@ export function GenerateCertificate({
   attributes,
   mapping,
   templateUrl,
+  certificateType,
 }: GenerateCertificateProps) {
   // Initialize form data with empty strings for all attributes
   const initialFormData = useMemo(() => {
@@ -93,6 +114,8 @@ export function GenerateCertificate({
   const [studentEmail, setStudentEmail] = useState<string>("")
   const [emailError, setEmailError] = useState<string>("")
   const [emailValid, setEmailValid] = useState<boolean>(false)
+  const [isGenerating, setIsGenerating] = useState<boolean>(false)
+  const [isGeneratingAndSending, setIsGeneratingAndSending] = useState<boolean>(false)
 
   // Email validation
   const validateEmail = (email: string) => {
@@ -135,6 +158,11 @@ export function GenerateCertificate({
     return attributes.every((attr) => formData[attr]?.trim() !== "")
   }, [attributes, formData])
 
+  // Check if form is valid (requires all fields + email)
+  const canGenerate = useMemo(() => {
+    return allFieldsFilled && emailValid
+  }, [allFieldsFilled, emailValid])
+
   // Check if form is valid for "Generate & Send" (requires email)
   const canGenerateAndSend = useMemo(() => {
     return allFieldsFilled && emailValid
@@ -165,14 +193,126 @@ export function GenerateCertificate({
     }))
   }
 
-  const handleGenerate = () => {
-    // TODO: Will be implemented later with API
-    console.log("Generate certificate with data:", formData)
+  const handleGenerate = async () => {
+    try {
+      setIsGenerating(true)
+
+      // Extract student name from form data
+      const studentNameKey = attributes.find(attr => attr.toLowerCase().includes('student_name') || attr.toLowerCase().includes('name'))
+      const studentName = studentNameKey ? formData[studentNameKey] : ""
+
+      // Build attributes object dynamically from form data
+      const certificateAttributes: Record<string, string> = {}
+      attributes.forEach((attr) => {
+        // Skip student_name as it goes in the student object
+        if (!attr.toLowerCase().includes('student_name') && attr.toLowerCase() !== 'name') {
+          certificateAttributes[attr] = formData[attr] || ""
+        }
+      })
+
+      // Build the payload dynamically
+      const payload = {
+        certificateType,
+        student: {
+          name: studentName,
+          email: studentEmail || "",
+        },
+        attributes: certificateAttributes,
+      }
+
+      // Call the API
+      const response = await generateCertificate(payload)
+
+      if (response.success) {
+        // Show success toast
+        const toastEvent = new CustomEvent('showToast', {
+          detail: {
+            message: 'Certificate generated successfully',
+            type: 'success'
+          }
+        })
+        window.dispatchEvent(toastEvent)
+
+        // Reset form
+        setFormData(initialFormData)
+        setStudentEmail("")
+        setEmailValid(false)
+      }
+    } catch (error) {
+      console.error("Failed to generate certificate:", error)
+      
+      // Show error toast
+      const toastEvent = new CustomEvent('showToast', {
+        detail: {
+          message: error instanceof Error ? error.message : 'Failed to generate certificate',
+          type: 'error'
+        }
+      })
+      window.dispatchEvent(toastEvent)
+    } finally {
+      setIsGenerating(false)
+    }
   }
 
-  const handleGenerateAndSend = () => {
-    // TODO: Will be implemented later
-    console.log("Generate and send certificate with data:", formData)
+  const handleGenerateAndSend = async () => {
+    try {
+      setIsGeneratingAndSending(true)
+
+      // Extract student name from form data
+      const studentNameKey = attributes.find(attr => attr.toLowerCase().includes('student_name') || attr.toLowerCase().includes('name'))
+      const studentName = studentNameKey ? formData[studentNameKey] : ""
+
+      // Build attributes object dynamically from form data
+      const certificateAttributes: Record<string, string> = {}
+      attributes.forEach((attr) => {
+        // Skip student_name as it goes in the student object
+        if (!attr.toLowerCase().includes('student_name') && attr.toLowerCase() !== 'name') {
+          certificateAttributes[attr] = formData[attr] || ""
+        }
+      })
+
+      // Build the payload dynamically
+      const payload = {
+        certificateType,
+        student: {
+          name: studentName,
+          email: studentEmail,
+        },
+        attributes: certificateAttributes,
+      }
+
+      // Call the API
+      const response = await generateCertificate(payload)
+
+      if (response.success) {
+        // Show success toast
+        const toastEvent = new CustomEvent('showToast', {
+          detail: {
+            message: 'Certificate generated and sent successfully',
+            type: 'success'
+          }
+        })
+        window.dispatchEvent(toastEvent)
+
+        // Reset form
+        setFormData(initialFormData)
+        setStudentEmail("")
+        setEmailValid(false)
+      }
+    } catch (error) {
+      console.error("Failed to generate and send certificate:", error)
+      
+      // Show error toast
+      const toastEvent = new CustomEvent('showToast', {
+        detail: {
+          message: error instanceof Error ? error.message : 'Failed to generate and send certificate',
+          type: 'error'
+        }
+      })
+      window.dispatchEvent(toastEvent)
+    } finally {
+      setIsGeneratingAndSending(false)
+    }
   }
 
   // Format attribute key to readable label
@@ -338,28 +478,28 @@ export function GenerateCertificate({
               <div className="flex-1">
                 <Button
                   onClick={handleGenerate}
-                  disabled={!allFieldsFilled}
+                  disabled={!canGenerate || isGenerating}
                   className="w-full h-10 font-medium text-white whitespace-nowrap"
                   size="lg"
                   style={{ 
-                    backgroundColor: allFieldsFilled ? 'var(--color-brand-primary)' : '#94a3b8',
+                    backgroundColor: (canGenerate && !isGenerating) ? 'var(--color-brand-primary)' : '#94a3b8',
                     borderRadius: '8px',
-                    cursor: allFieldsFilled ? 'pointer' : 'not-allowed',
-                    opacity: allFieldsFilled ? 1 : 0.6,
+                    cursor: (canGenerate && !isGenerating) ? 'pointer' : 'not-allowed',
+                    opacity: (canGenerate && !isGenerating) ? 1 : 0.6,
                     pointerEvents: 'auto'
                   }}
                   onMouseEnter={(e) => {
-                    if (allFieldsFilled) {
+                    if (canGenerate && !isGenerating) {
                       e.currentTarget.style.backgroundColor = 'var(--color-brand-primary-hover)'
                     }
                   }}
                   onMouseLeave={(e) => {
-                    if (allFieldsFilled) {
+                    if (canGenerate && !isGenerating) {
                       e.currentTarget.style.backgroundColor = 'var(--color-brand-primary)'
                     }
                   }}
                 >
-                  Generate Certificate
+                  {isGenerating ? <LoadingDots /> : "Generate Certificate"}
                 </Button>
               </div>
             </CertificateActionTooltip>
@@ -374,33 +514,33 @@ export function GenerateCertificate({
               <div className="flex-1">
                 <Button
                   onClick={handleGenerateAndSend}
-                  disabled={!canGenerateAndSend}
+                  disabled={!canGenerateAndSend || isGeneratingAndSending}
                   variant="outline"
                   className="w-full h-10 font-medium whitespace-nowrap"
                   size="lg"
                   style={{ 
-                    borderColor: canGenerateAndSend ? 'var(--color-brand-primary)' : '#cbd5e1',
-                    color: canGenerateAndSend ? '#000000' : '#94a3b8',
+                    borderColor: (canGenerateAndSend && !isGeneratingAndSending) ? 'var(--color-brand-primary)' : '#cbd5e1',
+                    color: (canGenerateAndSend && !isGeneratingAndSending) ? '#000000' : '#94a3b8',
                     backgroundColor: 'white',
                     borderRadius: '8px',
-                    cursor: canGenerateAndSend ? 'pointer' : 'not-allowed',
-                    opacity: canGenerateAndSend ? 1 : 0.6,
+                    cursor: (canGenerateAndSend && !isGeneratingAndSending) ? 'pointer' : 'not-allowed',
+                    opacity: (canGenerateAndSend && !isGeneratingAndSending) ? 1 : 0.6,
                     pointerEvents: 'auto'
                   }}
                   onMouseEnter={(e) => {
-                    if (canGenerateAndSend) {
+                    if (canGenerateAndSend && !isGeneratingAndSending) {
                       e.currentTarget.style.backgroundColor = '#2596be'
                       e.currentTarget.style.color = 'white'
                     }
                   }}
                   onMouseLeave={(e) => {
-                    if (canGenerateAndSend) {
+                    if (canGenerateAndSend && !isGeneratingAndSending) {
                       e.currentTarget.style.backgroundColor = 'white'
                       e.currentTarget.style.color = '#000000'
                     }
                   }}
                 >
-                  Generate & Send
+                  {isGeneratingAndSending ? <LoadingDots /> : "Generate & Send"}
                 </Button>
               </div>
             </CertificateActionTooltip>

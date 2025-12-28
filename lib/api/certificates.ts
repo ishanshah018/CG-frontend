@@ -386,7 +386,188 @@ export async function saveCertificateMapping(mappings: any): Promise<{ success: 
 
   return data;
 }
+/**
+ * Issued Certificates Types and Interfaces
+ */
+export type CertificateStatus = "pending" | "generated" | "failed" | "archived";
 
+export interface IssuedCertificate {
+  certificate_id: string;
+  org_id: string;
+  certificate_type: CertificateType;
+  student: {
+    name: string;
+    email: string;
+    student_id?: string;
+  };
+  attributes: Record<string, string>;
+  status: CertificateStatus;
+  is_emailed: boolean;
+  file?: {
+    format: string;
+    s3_key: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+  error?: string;
+}
+
+export interface GetIssuedCertificatesParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  certificateType?: CertificateType | "all";
+  status?: CertificateStatus | "all";
+  emailStatus?: "sent" | "not_sent" | "all";
+  dateFilter?: "today" | "last_7_days" | "last_30_days" | "this_year" | "custom";
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface GetIssuedCertificatesResponse {
+  success: boolean;
+  message: string;
+  data: {
+    certificates: IssuedCertificate[];
+    pagination: {
+      currentPage: number;
+      totalPages: number;
+      totalCount: number;
+      limit: number;
+    };
+  };
+}
+
+/**
+ * Get Issued Certificates
+ * Fetches all issued certificates with filters
+ */
+export async function getIssuedCertificates(
+  params: GetIssuedCertificatesParams = {}
+): Promise<GetIssuedCertificatesResponse> {
+  const token = sessionStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  // Build query string with EXACT backend field names
+  const queryParams = new URLSearchParams();
+  
+  if (params.page) queryParams.append("page", params.page.toString());
+  if (params.limit) queryParams.append("limit", params.limit.toString());
+  if (params.search) queryParams.append("search", params.search);
+  
+  // CRITICAL: Use backend field name "certificate_type" not "certificateType"
+  if (params.certificateType && params.certificateType !== "all") {
+    queryParams.append("certificate_type", params.certificateType);
+  }
+  
+  if (params.status && params.status !== "all") {
+    queryParams.append("status", params.status);
+  }
+  
+  // CRITICAL: Use backend field name "is_emailed" not "emailStatus"
+  if (params.emailStatus && params.emailStatus !== "all") {
+    const isEmailedValue = params.emailStatus === "sent" ? "true" : "false";
+    queryParams.append("is_emailed", isEmailedValue);
+  }
+  
+  if (params.dateFilter) queryParams.append("dateFilter", params.dateFilter);
+  if (params.startDate) queryParams.append("startDate", params.startDate);
+  if (params.endDate) queryParams.append("endDate", params.endDate);
+
+  const queryString = queryParams.toString();
+  const url = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CERTIFICATES.ISSUED}${
+    queryString ? `?${queryString}` : ""
+  }`;
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to fetch issued certificates");
+  }
+
+
+  return data;
+}
+
+/**
+ * View Certificate
+ * Gets presigned URL to view a certificate
+ */
+export async function viewCertificate(certificateId: string): Promise<{ view_url: string; expires_in_seconds: number }> {
+  // CRITICAL: Guard against undefined/null certificateId
+  if (!certificateId || certificateId === "undefined") {
+    throw new Error("Invalid certificate ID");
+  }
+
+  const token = sessionStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  const response = await fetch(
+    `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CERTIFICATES.VIEW}/${certificateId}/view`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to get certificate view URL");
+  }
+
+  return data.data;
+}
+
+/**
+ * Resend Certificate Email
+ * Resends certificate email to student
+ */
+export async function resendCertificateEmail(
+  certificateId: string
+): Promise<{ success: boolean; message: string }> {
+  const token = sessionStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  const response = await fetch(
+    `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CERTIFICATES.RESEND_EMAIL}/${certificateId}/resend-email`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to resend certificate email");
+  }
+
+  return data;
+}
 /**
  * Get certificate mapping
  * Fetches certificate mapping configuration from server
@@ -453,7 +634,7 @@ export async function generateCertificate(
   }
 
   const response = await fetch(
-    `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CERTIFICATES.GENERATE}`,
+    API_CONFIG.ENDPOINTS.CERTIFICATES.GENERATE,
     {
       method: "POST",
       headers: {

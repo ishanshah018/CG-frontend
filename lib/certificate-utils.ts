@@ -91,3 +91,110 @@ normalized.attributes[key] = {
 
 return normalized
 }
+
+/**
+ * =================================================================
+ * ISSUED CERTIFICATES DEFENSIVE HELPERS
+ * Production-grade safety functions for certificate data handling
+ * =================================================================
+ */
+
+import type { IssuedCertificate, CertificateType, CertificateStatus } from "@/lib/api/certificates";
+
+/**
+ * SAFE Certificate Title Getter
+ * 
+ * CRITICAL: Always use this helper instead of direct attribute access
+ * Handles undefined, null, and missing attributes gracefully
+ */
+export function getIssuedCertificateTitle(
+  certificate_type: CertificateType,
+  attributes?: Record<string, any> | null
+): string {
+  if (!attributes || typeof attributes !== "object") {
+    return "Certificate";
+  }
+
+  if (certificate_type === "course") {
+    return attributes.course_name ?? "Course Certificate";
+  }
+
+  if (certificate_type === "webinar") {
+    return attributes.webinar_name ?? attributes.course_name ?? "Webinar Certificate";
+  }
+
+  if (certificate_type === "workshop") {
+    return attributes.workshop_name ?? attributes.course_name ?? "Workshop Certificate";
+  }
+
+  return "Certificate";
+}
+
+/**
+ * Format Date Safely
+ */
+export function formatCertificateDate(dateString: string | null | undefined): string {
+  try {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "N/A";
+    return date.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return "N/A";
+  }
+}
+
+/**
+ * Get Status Display Config
+ */
+export function getStatusConfig(status: CertificateStatus | string) {
+  const configs: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; text: string }> = {
+    pending: { variant: "secondary", text: "Generating" },
+    generated: { variant: "default", text: "Generated" },
+    failed: { variant: "destructive", text: "Failed" },
+    archived: { variant: "outline", text: "Archived" },
+  };
+  return configs[status] ?? { variant: "outline" as const, text: "Unknown" };
+}
+
+/**
+ * Get Type Color Classes
+ */
+export function getTypeColorClass(type: CertificateType | string): string {
+  const colors: Record<string, string> = {
+    course: "bg-blue-100 text-blue-700 hover:bg-blue-100",
+    webinar: "bg-purple-100 text-purple-700 hover:bg-purple-100",
+    workshop: "bg-green-100 text-green-700 hover:bg-green-100",
+  };
+  return colors[type] ?? "bg-gray-100 text-gray-700 hover:bg-gray-100";
+}
+
+/**
+ * Safe Student Getters
+ */
+export function getStudentName(student: any): string {
+  return student?.name ?? "Unknown";
+}
+
+export function getStudentEmail(student: any): string {
+  return student?.email ?? "No email";
+}
+
+/**
+ * Permission Checkers
+ */
+export function canViewCertificate(status: CertificateStatus | string): boolean {
+  return status === "generated";
+}
+
+export function canRegenerateCertificate(status: CertificateStatus | string): boolean {
+  return status === "failed";
+}
+
+export function canResendEmail(status: CertificateStatus | string, is_emailed: boolean): boolean {
+  return status === "generated" && !is_emailed;
+}

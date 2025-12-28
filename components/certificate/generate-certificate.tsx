@@ -224,10 +224,10 @@ export function GenerateCertificate({
       const response = await generateCertificate(payload)
 
       if (response.success) {
-        // Show success toast
+        // Show success toast with API response message
         const toastEvent = new CustomEvent('showToast', {
           detail: {
-            message: 'Certificate generated successfully',
+            message: response.message || 'Certificate generated successfully',
             type: 'success'
           }
         })
@@ -241,7 +241,7 @@ export function GenerateCertificate({
     } catch (error) {
       console.error("Failed to generate certificate:", error)
       
-      // Show error toast
+      // Show error toast with API error message
       const toastEvent = new CustomEvent('showToast', {
         detail: {
           message: error instanceof Error ? error.message : 'Failed to generate certificate',
@@ -285,10 +285,10 @@ export function GenerateCertificate({
       const response = await generateCertificate(payload)
 
       if (response.success) {
-        // Show success toast
+        // Show success toast with API response message
         const toastEvent = new CustomEvent('showToast', {
           detail: {
-            message: 'Certificate generated and sent successfully',
+            message: response.message || 'Certificate generated and sent successfully',
             type: 'success'
           }
         })
@@ -302,7 +302,7 @@ export function GenerateCertificate({
     } catch (error) {
       console.error("Failed to generate and send certificate:", error)
       
-      // Show error toast
+      // Show error toast with API error message
       const toastEvent = new CustomEvent('showToast', {
         detail: {
           message: error instanceof Error ? error.message : 'Failed to generate and send certificate',
@@ -513,34 +513,21 @@ export function GenerateCertificate({
             >
               <div className="flex-1">
                 <Button
-                  onClick={handleGenerateAndSend}
-                  disabled={!canGenerateAndSend || isGeneratingAndSending}
+                  disabled={true}
                   variant="outline"
                   className="w-full h-10 font-medium whitespace-nowrap"
                   size="lg"
                   style={{ 
-                    borderColor: (canGenerateAndSend && !isGeneratingAndSending) ? 'var(--color-brand-primary)' : '#cbd5e1',
-                    color: (canGenerateAndSend && !isGeneratingAndSending) ? '#000000' : '#94a3b8',
+                    borderColor: '#cbd5e1',
+                    color: '#94a3b8',
                     backgroundColor: 'white',
                     borderRadius: '8px',
-                    cursor: (canGenerateAndSend && !isGeneratingAndSending) ? 'pointer' : 'not-allowed',
-                    opacity: (canGenerateAndSend && !isGeneratingAndSending) ? 1 : 0.6,
-                    pointerEvents: 'auto'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (canGenerateAndSend && !isGeneratingAndSending) {
-                      e.currentTarget.style.backgroundColor = '#2596be'
-                      e.currentTarget.style.color = 'white'
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (canGenerateAndSend && !isGeneratingAndSending) {
-                      e.currentTarget.style.backgroundColor = 'white'
-                      e.currentTarget.style.color = '#000000'
-                    }
+                    cursor: 'not-allowed',
+                    opacity: 0.6,
+                    pointerEvents: 'none'
                   }}
                 >
-                  {isGeneratingAndSending ? <LoadingDots /> : "Generate & Send"}
+                  Generate & Send
                 </Button>
               </div>
             </CertificateActionTooltip>

@@ -213,7 +213,7 @@ export default function CertificatesPage() {
           {certificates.length > 0 && (
             <div className="flex items-center justify-between text-sm text-muted-foreground">
               <div>
-                Showing {certificates.length} of {paginationMeta.totalCount} certificates
+                Showing {certificates.length} of {paginationMeta.totalCount || certificates.length} certificates
               </div>
               {paginationMeta.totalPages > 1 && (
                 <div className="flex items-center gap-2">

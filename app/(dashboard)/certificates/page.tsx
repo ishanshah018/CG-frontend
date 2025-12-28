@@ -39,16 +39,26 @@ export default function CertificatesPage() {
     }
 
     try {
+      // Build params with explicit defaults - NEVER allow undefined
       const params: GetIssuedCertificatesParams = {
-        page: pagination.currentPage,
-        limit: pagination.limit,
+        page: pagination.currentPage || 1,
+        limit: pagination.limit || 50,
       };
 
-      if (filters.search) params.search = filters.search;
-      if (filters.certificateType !== "all") params.certificateType = filters.certificateType;
-      if (filters.status !== "all") params.status = filters.status;
-      if (filters.emailStatus !== "all") params.emailStatus = filters.emailStatus;
-      if (filters.dateFilter !== "all") params.dateFilter = filters.dateFilter;
+      // Only add filters if they have actual values
+      if (filters.search?.trim()) params.search = filters.search.trim();
+      if (filters.certificateType && filters.certificateType !== "all") {
+        params.certificateType = filters.certificateType;
+      }
+      if (filters.status && filters.status !== "all") {
+        params.status = filters.status;
+      }
+      if (filters.emailStatus && filters.emailStatus !== "all") {
+        params.emailStatus = filters.emailStatus;
+      }
+      if (filters.dateFilter && filters.dateFilter !== "all") {
+        params.dateFilter = filters.dateFilter;
+      }
 
       const response = await getIssuedCertificates(params);
 
@@ -77,14 +87,23 @@ export default function CertificatesPage() {
     }
   };
 
+  // Single source of truth for API calls with stable dependencies
   useEffect(() => {
-    // Debounce search
     const timeout = setTimeout(() => {
       fetchCertificates();
-    }, 300);
+    }, filters.search ? 300 : 0); // Debounce only for search
 
     return () => clearTimeout(timeout);
-  }, [filters, pagination.currentPage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    pagination.currentPage,
+    pagination.limit,
+    filters.search,
+    filters.certificateType,
+    filters.status,
+    filters.emailStatus,
+    filters.dateFilter,
+  ]);
 
   const handleFilterChange = (newFilters: FilterState) => {
     setFilters(newFilters);

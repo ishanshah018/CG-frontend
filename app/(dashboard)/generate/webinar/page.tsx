@@ -2,9 +2,11 @@
 
 import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { fetchCertificateAttributes, getCertificateMapping, getBaseCertificateTemplate, type CertificateAttributes } from "@/lib/api/certificates"
+import { fetchCertificateAttributes, getCertificateMapping, getBaseCertificateTemplate, getDashboardUsage } from "@/lib/api/certificates"
 import Loader from "@/components/loader"
 import { GenerateCertificate } from "@/components/certificate/generate-certificate"
+import { toast } from "sonner"
+import { useUsage } from "@/app/(dashboard)/layout"
 
 export default function WebinarPage() {
   const router = useRouter()
@@ -15,6 +17,46 @@ export default function WebinarPage() {
   const [error, setError] = useState<string | null>(null)
   const [redirectMessage, setRedirectMessage] = useState<string | null>(null)
   const hasLoadedRef = useRef(false)
+  const { usage, refetchUsage } = useUsage()
+  const lastKnownUsageRef = useRef<number | null>(null)
+
+  // Silent polling for usage updates
+  useEffect(() => {
+    // Only start polling if page is fully loaded
+    if (isLoading || redirectMessage) return
+
+    // Initialize last known usage
+    if (usage && lastKnownUsageRef.current === null) {
+      lastKnownUsageRef.current = usage.monthly_certificates_used
+    }
+
+    const pollUsage = async () => {
+      try {
+        const response = await getDashboardUsage()
+        // Silent: ignore if API returns success: false
+        if (!response.success || !response.data) return
+
+        const newUsed = response.data.monthly_certificates_used
+        const lastKnown = lastKnownUsageRef.current
+
+        // Only update if usage has increased
+        if (lastKnown !== null && newUsed > lastKnown) {
+          lastKnownUsageRef.current = newUsed
+          await refetchUsage()
+        } else if (lastKnown === null) {
+          lastKnownUsageRef.current = newUsed
+        }
+      } catch {
+        // Silent: ignore errors, retry on next interval
+      }
+    }
+
+    // Poll every 10 seconds
+    const intervalId = setInterval(pollUsage, 10000)
+
+    // Cleanup on unmount
+    return () => clearInterval(intervalId)
+  }, [isLoading, redirectMessage, usage, refetchUsage])
 
   useEffect(() => {
     if (hasLoadedRef.current) return
@@ -32,13 +74,7 @@ export default function WebinarPage() {
           setRedirectMessage('Template Not Found')
           setIsLoading(false)
           
-          const toastEvent = new CustomEvent('showToast', {
-            detail: {
-              message: 'You have to upload base certificate first',
-              type: 'error'
-            }
-          })
-          window.dispatchEvent(toastEvent)
+          toast.error('You have to upload base certificate first')
           
           setTimeout(() => {
             router.push('/templates')
@@ -56,13 +92,7 @@ export default function WebinarPage() {
           setRedirectMessage('Mapping Not Found')
           setIsLoading(false)
           
-          const toastEvent = new CustomEvent('showToast', {
-            detail: {
-              message: 'Custom certificate mapping not found. Please configure mapping first.',
-              type: 'error'
-            }
-          })
-          window.dispatchEvent(toastEvent)
+          toast.error('Custom certificate mapping not found. Please configure mapping first.')
           
           setTimeout(() => {
             router.push('/certificate-mapping')

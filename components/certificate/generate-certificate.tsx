@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { CertificatePreview } from "./certificate-preview"
 import { CertificateActionTooltip } from "./certificate-action-tooltip"
 import { generateCertificate, type CertificateType } from "@/lib/api/certificates"
+import { toast } from "sonner"
 
 // Loading Dots Animation Component
 const LoadingDots = () => (
@@ -225,13 +226,7 @@ export function GenerateCertificate({
 
       if (response.success) {
         // Show success toast with API response message
-        const toastEvent = new CustomEvent('showToast', {
-          detail: {
-            message: response.message || 'Certificate generated successfully',
-            type: 'success'
-          }
-        })
-        window.dispatchEvent(toastEvent)
+        toast.success(response.message || 'Certificate generated successfully')
 
         // Reset form
         setFormData(initialFormData)
@@ -242,13 +237,7 @@ export function GenerateCertificate({
       console.error("Failed to generate certificate:", error)
       
       // Show error toast with API error message
-      const toastEvent = new CustomEvent('showToast', {
-        detail: {
-          message: error instanceof Error ? error.message : 'Failed to generate certificate',
-          type: 'error'
-        }
-      })
-      window.dispatchEvent(toastEvent)
+      toast.error(error instanceof Error ? error.message : 'Failed to generate certificate')
     } finally {
       setIsGenerating(false)
     }
@@ -286,13 +275,7 @@ export function GenerateCertificate({
 
       if (response.success) {
         // Show success toast with API response message
-        const toastEvent = new CustomEvent('showToast', {
-          detail: {
-            message: response.message || 'Certificate generated and sent successfully',
-            type: 'success'
-          }
-        })
-        window.dispatchEvent(toastEvent)
+        toast.success(response.message || 'Certificate generated and sent successfully')
 
         // Reset form
         setFormData(initialFormData)
@@ -303,13 +286,7 @@ export function GenerateCertificate({
       console.error("Failed to generate and send certificate:", error)
       
       // Show error toast with API error message
-      const toastEvent = new CustomEvent('showToast', {
-        detail: {
-          message: error instanceof Error ? error.message : 'Failed to generate and send certificate',
-          type: 'error'
-        }
-      })
-      window.dispatchEvent(toastEvent)
+      toast.error(error instanceof Error ? error.message : 'Failed to generate and send certificate')
     } finally {
       setIsGeneratingAndSending(false)
     }

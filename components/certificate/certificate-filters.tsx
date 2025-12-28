@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Search } from "lucide-react";
 import type { CertificateType, CertificateStatus } from "@/lib/api/certificates";
 
 interface CertificateFiltersProps {
@@ -32,6 +33,7 @@ export function CertificateFilters({ onFilterChange }: CertificateFiltersProps) 
     emailStatus: "all",
     dateFilter: "all",
   });
+  const [searchInput, setSearchInput] = useState<string>("");
 
   const updateFilter = <K extends keyof FilterState>(
     key: K,
@@ -40,6 +42,16 @@ export function CertificateFilters({ onFilterChange }: CertificateFiltersProps) 
     const newFilters = { ...filters, [key]: value };
     setFilters(newFilters);
     onFilterChange(newFilters);
+  };
+
+  const handleSearch = () => {
+    updateFilter("search", searchInput);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      handleSearch();
+    }
   };
 
   const clearFilters = () => {
@@ -51,6 +63,7 @@ export function CertificateFilters({ onFilterChange }: CertificateFiltersProps) 
       dateFilter: "all",
     };
     setFilters(resetFilters);
+    setSearchInput("");
     onFilterChange(resetFilters);
   };
 
@@ -58,13 +71,24 @@ export function CertificateFilters({ onFilterChange }: CertificateFiltersProps) 
     <div className="space-y-4">
       {/* Search Bar */}
       <div className="flex items-center gap-4">
-        <Input
-          type="text"
-          placeholder="Search by name or email"
-          value={filters.search}
-          onChange={(e) => updateFilter("search", e.target.value)}
-          className="max-w-sm"
-        />
+        <div className="relative max-w-sm flex-1">
+          <Input
+            type="text"
+            placeholder="Search by name or email"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyPress={handleKeyPress}
+            className="pr-10"
+          />
+          <Button
+            size="sm"
+            onClick={handleSearch}
+            className="absolute right-0.5 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
+            style={{ backgroundColor: 'var(--color-brand-primary)' }}
+          >
+            <Search className="h-4 w-4 text-white" />
+          </Button>
+        </div>
         {(filters.search ||
           filters.certificateType !== "all" ||
           filters.status !== "all" ||

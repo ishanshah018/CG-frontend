@@ -26,6 +26,9 @@ export const API_CONFIG = {
       ISSUED: "/api/certificates/issued",
       VIEW: "/api/certificates",
       RESEND_EMAIL: "/api/certificates",
+      DASHBOARD: {
+        USAGE: "/api/certificates/dashboard/usage",
+      },
     },
     // Add more endpoints as needed
     TEMPLATES: "/api/templates",

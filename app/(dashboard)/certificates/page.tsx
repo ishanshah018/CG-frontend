@@ -11,7 +11,8 @@ import {
   type IssuedCertificate,
   type GetIssuedCertificatesParams,
 } from "@/lib/api/certificates";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
+import { useUsage } from "@/app/(dashboard)/layout";
 
 export default function CertificatesPage() {
   const [certificates, setCertificates] = useState<IssuedCertificate[]>([]);
@@ -30,6 +31,9 @@ export default function CertificatesPage() {
     totalCount: 0,
     limit: 50,
   });
+
+  const { refetchUsage } = useUsage();
+  const previousCertificatesRef = useRef<IssuedCertificate[]>([]);
 
   // Fetch guard to prevent duplicate calls within the same render cycle
   const lastFetchParamsRef = useRef<string>("");
@@ -106,7 +110,29 @@ export default function CertificatesPage() {
       };
 
       // Extra safety: Filter out any null/undefined certificates
-      setCertificates(certificatesData.filter(Boolean));
+      const validCertificates = certificatesData.filter(Boolean);
+      
+      // Check if any certificate changed from non-generated to generated
+      const hasNewGeneratedCerts = validCertificates.some((cert: IssuedCertificate) => {
+        if (cert.status === "generated") {
+          const previousCert = previousCertificatesRef.current.find(
+            (prev) => prev.certificate_id === cert.certificate_id
+          );
+          // If certificate didn't exist before OR was not generated before
+          return !previousCert || previousCert.status !== "generated";
+        }
+        return false;
+      });
+
+      // Update state
+      setCertificates(validCertificates);
+      previousCertificatesRef.current = validCertificates;
+      
+      // Refetch usage ONLY if new certificates were generated
+      if (hasNewGeneratedCerts) {
+        await refetchUsage();
+      }
+      
       setPaginationMeta({
         totalPages: paginationData.totalPages,
         totalCount: paginationData.totalCount,
@@ -117,11 +143,7 @@ export default function CertificatesPage() {
       if (error instanceof Error && error.name === "AbortError") {
         return;
       }
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to fetch certificates",
-        variant: "destructive",
-      });
+      toast.error(error instanceof Error ? error.message : "Failed to fetch certificates");
       setCertificates([]);
     } finally {
       setIsLoading(false);

@@ -7,6 +7,7 @@ import { getBaseCertificateTemplate, fetchCertificateAttributes, saveCertificate
 import { Monitor, User, BookOpen, Calendar, Video, UserCircle, Briefcase } from "lucide-react"
 import Loader from "@/components/loader"
 import { normalizeCertificateMappings } from "@/lib/certificate-utils"
+import { toast } from "sonner"
 
 // Types
 type CertificateType = "course" | "webinar" | "workshop"
@@ -315,13 +316,7 @@ export default function CertificateMappingPage() {
           setIsLoading(false)
           
           // Show toaster for missing base certificate
-          const toastEvent = new CustomEvent('showToast', {
-            detail: {
-              message: 'You have to upload base certificate first',
-              type: 'error'
-            }
-          })
-          window.dispatchEvent(toastEvent)
+          toast.error('You have to upload base certificate first')
           
           // Redirect to templates page after a short delay
           setTimeout(() => {
@@ -1058,13 +1053,7 @@ function CustomMappingView({
     const invalidAttributes = attributesInText.filter((attr: string) => !attributes.includes(attr))
     
     if (invalidAttributes.length > 0) {
-      const toastEvent = new CustomEvent('showToast', {
-        detail: {
-          message: `Invalid attribute(s) in description: {${invalidAttributes.join('}, {')}}. These attributes are not available for ${certificateType}.`,
-          type: 'error'
-        }
-      })
-      window.dispatchEvent(toastEvent)
+      toast.error(`Invalid attribute(s) in description: {${invalidAttributes.join('}, {')}}. These attributes are not available for ${certificateType}.`)
       return
     }
     
@@ -1075,13 +1064,7 @@ function CustomMappingView({
       const response = await saveCertificateMapping(latestDraft)
       if (response.success) {
         // Show success toaster
-        const toastEvent = new CustomEvent('showToast', {
-          detail: {
-            message: response.message || 'Custom certificate mapping saved successfully',
-            type: 'success'
-          }
-        })
-        window.dispatchEvent(toastEvent)
+        toast.success(response.message || 'Custom certificate mapping saved successfully')
         
         // Update saved state and sessionStorage ONLY after successful save
         // Use latestDraft from ref (guaranteed to be current)
@@ -1096,13 +1079,7 @@ function CustomMappingView({
       }
     } catch (error) {
       console.error('Failed to save certificate mapping:', error)
-      const toastEvent = new CustomEvent('showToast', {
-        detail: {
-          message: error instanceof Error ? error.message : 'Failed to save certificate mapping',
-          type: 'error'
-        }
-      })
-      window.dispatchEvent(toastEvent)
+      toast.error(error instanceof Error ? error.message : 'Failed to save certificate mapping')
     } finally {
       setIsSaving(false)
     }

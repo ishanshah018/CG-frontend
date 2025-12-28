@@ -653,3 +653,149 @@ export async function generateCertificate(
 
   return data;
 }
+
+// Dashboard Usage Types
+export interface DashboardUsageData {
+  monthly_certificate_limit: number;
+  monthly_certificates_used: number;
+  remaining: number;
+  usage_percentage: number;
+  billing_cycle: {
+    started_at: string;
+    resets_at: string;
+  };
+}
+
+export interface DashboardUsageResponse {
+  success: boolean;
+  message?: string;
+  data: DashboardUsageData;
+}
+
+/**
+ * Get dashboard certificate usage
+ * Retrieves current certificate usage stats and limits
+ */
+export async function getDashboardUsage(): Promise<DashboardUsageResponse> {
+  const token = sessionStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  const response = await fetch(
+    `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CERTIFICATES.DASHBOARD.USAGE}`,
+    {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to get dashboard usage");
+  }
+
+  return data;
+}
+
+// Dashboard Insights Types
+export interface DashboardInsightsData {
+  total_issued: number;
+  issued_this_month: number;
+  by_type: {
+    course: number;
+    webinar: number;
+    workshop: number;
+  };
+  most_issued_type: "course" | "webinar" | "workshop" | null;
+}
+
+export interface DashboardInsightsResponse {
+  success: boolean;
+  message?: string;
+  data: DashboardInsightsData;
+}
+
+/**
+ * Get dashboard insights
+ * Retrieves certificate statistics and breakdown
+ */
+export async function getDashboardInsights(): Promise<DashboardInsightsResponse> {
+  const token = sessionStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  const response = await fetch(
+    `${API_CONFIG.BASE_URL}/api/certificates/dashboard/insights`,
+    {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to get dashboard insights");
+  }
+
+  return data;
+}
+
+// Dashboard Graph Types
+export interface DashboardGraphPoint {
+  month: string;
+  count: number;
+}
+
+export interface DashboardGraphData {
+  year: number;
+  points: DashboardGraphPoint[];
+}
+
+export interface DashboardGraphResponse {
+  success: boolean;
+  message?: string;
+  data: DashboardGraphData;
+}
+
+/**
+ * Get dashboard graph data
+ * Retrieves monthly certificate counts for a specific year
+ */
+export async function getDashboardGraph(year: number): Promise<DashboardGraphResponse> {
+  const token = sessionStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
+
+  const response = await fetch(
+    `${API_CONFIG.BASE_URL}/api/certificates/dashboard/graph?year=${year}`,
+    {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to get dashboard graph");
+  }
+
+  return data;
+}

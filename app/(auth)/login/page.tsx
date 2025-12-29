@@ -286,6 +286,9 @@ return (
         width={800}
         height={600}
         className="w-full max-w-200 h-auto mt-8"
+        draggable={false}
+        onDragStart={(e) => e.preventDefault()}
+        style={{ userSelect: 'none' }}
       />
     </div>
   </div>

@@ -96,7 +96,7 @@ const [emailValid, setEmailValid] = React.useState(false)
   }
 
 return (
-<div className="min-h-screen flex flex-col lg:flex-row bg-gradient-to-r from-white from-45% via-brand-primary/10 via-65% to-brand-primary/25">
+<div className="min-h-screen flex flex-col lg:flex-row bg-linear-to-r from-white from-45% via-brand-primary/10 via-65% to-brand-primary/25">
     {/* LEFT SIDE - Auth Card */}
     <div className="flex-1 flex items-center justify-center px-4 py-12 lg:py-0">
       <div className="w-full max-w-110 bg-white rounded-2xl shadow-lg p-8 lg:p-10">
@@ -281,7 +281,7 @@ return (
     {/* RIGHT SIDE - Illustration (Hidden on mobile) */}
     <div className="hidden lg:flex flex-1 items-center justify-center p-12">
       <Image
-        src="/auth_image.png"
+        src="/auth_image.webp"
         alt="Authentication illustration"
         width={800}
         height={600}

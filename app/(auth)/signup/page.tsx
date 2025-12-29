@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import React from "react"
 import { signupUser } from "@/lib/api/auth"
 import Loader from "@/components/loader"
@@ -94,9 +95,10 @@ export default function SignupPage() {
         router.push("/login")
       }, 1000)
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Show error message from API
-      toast.error(error.message)
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred'
+      toast.error(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -127,10 +129,10 @@ export default function SignupPage() {
   }
 
 return (
-<div className="min-h-screen flex flex-col lg:flex-row bg-gradient-to-r from-white from-45% via-brand-primary/10 via-65% to-brand-primary/25">
+<div className="min-h-screen flex flex-col lg:flex-row bg-linear-to-r from-white from-45% via-brand-primary/10 via-65% to-brand-primary/25">
     {/* LEFT SIDE - Auth Card */}
     <div className="flex-1 flex items-center justify-center px-4 py-12 lg:py-0">
-      <div className="w-full max-w-[440px] bg-white rounded-2xl shadow-lg p-8 lg:p-10">
+      <div className="w-full max-w-110 bg-white rounded-2xl shadow-lg p-8 lg:p-10">
         {/* Heading */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
@@ -277,37 +279,37 @@ return (
             </div>
 
             {/* Password Validation */}
-            <div className="flex flex-nowrap items-center gap-x-2 md:gap-x-4 gap-y-2 text-[10px] md:text-xs mt-2 overflow-x-auto">
-              <div className={`flex items-center gap-1 md:gap-1.5 whitespace-nowrap ${passwordValidation.minLength ? 'text-brand-primary' : 'text-gray-400'}`}>
-                <svg className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5 text-[9px] sm:text-[10px] md:text-xs mt-2">
+              <div className={`flex items-center gap-0.5 sm:gap-1 whitespace-nowrap ${passwordValidation.minLength ? 'text-brand-primary' : 'text-gray-400'}`}>
+                <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                <span>8 characters</span>
+                <span>8 chars</span>
               </div>
               
-              <div className={`flex items-center gap-1 md:gap-1.5 whitespace-nowrap ${passwordValidation.hasLowerCase ? 'text-brand-primary' : 'text-gray-400'}`}>
-                <svg className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className={`flex items-center gap-0.5 sm:gap-1 whitespace-nowrap ${passwordValidation.hasLowerCase ? 'text-brand-primary' : 'text-gray-400'}`}>
+                <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                <span>Lower case</span>
+                <span>Lowercase</span>
               </div>
               
-              <div className={`flex items-center gap-1 md:gap-1.5 whitespace-nowrap ${passwordValidation.hasUpperCase ? 'text-brand-primary' : 'text-gray-400'}`}>
-                <svg className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className={`flex items-center gap-0.5 sm:gap-1 whitespace-nowrap ${passwordValidation.hasUpperCase ? 'text-brand-primary' : 'text-gray-400'}`}>
+                <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                <span>Upper case</span>
+                <span>Uppercase</span>
               </div>
               
-              <div className={`flex items-center gap-1 md:gap-1.5 whitespace-nowrap ${passwordValidation.hasSpecial ? 'text-brand-primary' : 'text-gray-400'}`}>
-                <svg className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className={`flex items-center gap-0.5 sm:gap-1 whitespace-nowrap ${passwordValidation.hasSpecial ? 'text-brand-primary' : 'text-gray-400'}`}>
+                <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
                 <span>Special</span>
               </div>
               
-              <div className={`flex items-center gap-1 md:gap-1.5 whitespace-nowrap ${passwordValidation.hasNumber ? 'text-brand-primary' : 'text-gray-400'}`}>
-                <svg className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className={`flex items-center gap-0.5 sm:gap-1 whitespace-nowrap ${passwordValidation.hasNumber ? 'text-brand-primary' : 'text-gray-400'}`}>
+                <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
                 <span>Number</span>
@@ -349,10 +351,12 @@ return (
 
     {/* RIGHT SIDE - Illustration (Hidden on mobile) */}
     <div className="hidden lg:flex flex-1 items-center justify-center p-12">
-      <img
-        src="/auth_image.png"
+      <Image
+        src="/auth_image.webp"
         alt="Authentication illustration"
-        className="w-full max-w-[800px] h-auto mt-8"
+        width={800}
+        height={600}
+        className="w-full max-w-200 h-auto mt-8"
       />
     </div>
   </div>

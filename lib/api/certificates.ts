@@ -419,9 +419,9 @@ export interface GetIssuedCertificatesParams {
   certificateType?: CertificateType | "all";
   status?: CertificateStatus | "all";
   emailStatus?: "sent" | "not_sent" | "all";
-  dateFilter?: "today" | "last_7_days" | "last_30_days" | "this_year" | "custom";
-  startDate?: string;
-  endDate?: string;
+  dateFilter?: "today" | "last_7_days" | "last_30_days" | "this_year" | "custom" | "all";
+  from?: string;
+  to?: string;
 }
 
 export interface GetIssuedCertificatesResponse {
@@ -473,9 +473,16 @@ export async function getIssuedCertificates(
     queryParams.append("is_emailed", isEmailedValue);
   }
   
-  if (params.dateFilter) queryParams.append("dateFilter", params.dateFilter);
-  if (params.startDate) queryParams.append("startDate", params.startDate);
-  if (params.endDate) queryParams.append("endDate", params.endDate);
+  // Handle date filtering with new backend format
+  if (params.dateFilter && params.dateFilter !== "all") {
+    queryParams.append("date", params.dateFilter);
+    
+    // For custom date range, include from and to parameters
+    if (params.dateFilter === "custom") {
+      if (params.from) queryParams.append("from", params.from);
+      if (params.to) queryParams.append("to", params.to);
+    }
+  }
 
   const queryString = queryParams.toString();
   const url = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CERTIFICATES.ISSUED}${
@@ -713,6 +720,12 @@ export interface DashboardInsightsData {
     workshop: number;
   };
   most_issued_type: "course" | "webinar" | "workshop" | null;
+  monthly_certificate_limit: number;
+  monthly_certificates_used: number;
+  remaining_monthly_limit: number;
+  billing_cycle: {
+    resets_at: string;
+  };
 }
 
 export interface DashboardInsightsResponse {

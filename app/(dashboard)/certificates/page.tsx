@@ -24,6 +24,8 @@ export default function CertificatesPage() {
     status: "all",
     emailStatus: "all",
     dateFilter: "all",
+    customDateFrom: "",
+    customDateTo: "",
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [paginationMeta, setPaginationMeta] = useState({
@@ -94,8 +96,16 @@ export default function CertificatesPage() {
       if (filterState.emailStatus && filterState.emailStatus !== "all") {
         params.emailStatus = filterState.emailStatus;
       }
+      
+      // Handle date filtering - backend now uses 'date' parameter
       if (filterState.dateFilter && filterState.dateFilter !== "all") {
         params.dateFilter = filterState.dateFilter;
+        
+        // For custom range, include from and to dates
+        if (filterState.dateFilter === "custom" && filterState.customDateFrom && filterState.customDateTo) {
+          params.from = filterState.customDateFrom;
+          params.to = filterState.customDateTo;
+        }
       }
 
       const response = await getIssuedCertificates(params);
@@ -171,6 +181,8 @@ export default function CertificatesPage() {
     filters.status,
     filters.emailStatus,
     filters.dateFilter,
+    filters.customDateFrom,
+    filters.customDateTo,
     fetchCertificates,
   ]);
 
@@ -224,7 +236,7 @@ export default function CertificatesPage() {
 
       {/* Loading State */}
       {isLoading ? (
-        <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex items-center justify-center min-h-100">
           <Loader size="large" text="Loading certificates..." />
         </div>
       ) : (

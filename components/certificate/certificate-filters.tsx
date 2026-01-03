@@ -23,6 +23,8 @@ export interface FilterState {
   status: CertificateStatus | "all";
   emailStatus: "sent" | "not_sent" | "all";
   dateFilter: "today" | "last_7_days" | "last_30_days" | "this_year" | "custom" | "all";
+  customDateFrom?: string;
+  customDateTo?: string;
 }
 
 export function CertificateFilters({ onFilterChange }: CertificateFiltersProps) {
@@ -32,14 +34,64 @@ export function CertificateFilters({ onFilterChange }: CertificateFiltersProps) 
     status: "all",
     emailStatus: "all",
     dateFilter: "all",
+    customDateFrom: "",
+    customDateTo: "",
   });
   const [searchInput, setSearchInput] = useState<string>("");
+  const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
+  const [customDateFrom, setCustomDateFrom] = useState("");
+  const [customDateTo, setCustomDateTo] = useState("");
+  const [dateError, setDateError] = useState("");
 
   const updateFilter = <K extends keyof FilterState>(
     key: K,
     value: FilterState[K]
   ) => {
     const newFilters = { ...filters, [key]: value };
+    setFilters(newFilters);
+    
+    // If switching away from custom, clear custom dates
+    if (key === "dateFilter" && value !== "custom") {
+      newFilters.customDateFrom = "";
+      newFilters.customDateTo = "";
+      setCustomDateFrom("");
+      setCustomDateTo("");
+      setShowCustomDatePicker(false);
+      setDateError("");
+    }
+    
+    // If switching to custom, show date picker
+    if (key === "dateFilter" && value === "custom") {
+      setShowCustomDatePicker(true);
+      // Don't trigger filter change yet, wait for date selection
+      return;
+    }
+    
+    onFilterChange(newFilters);
+  };
+
+  const handleCustomDateApply = () => {
+    // Validate dates
+    if (!customDateFrom || !customDateTo) {
+      setDateError("Both dates are required");
+      return;
+    }
+    
+    const fromDate = new Date(customDateFrom);
+    const toDate = new Date(customDateTo);
+    
+    if (fromDate > toDate) {
+      setDateError("From date must be before or equal to To date");
+      return;
+    }
+    
+    setDateError("");
+    const newFilters = {
+      ...filters,
+      dateFilter: "custom" as const,
+      customDateFrom,
+      customDateTo,
+    };
     setFilters(newFilters);
     onFilterChange(newFilters);
   };
@@ -61,9 +113,15 @@ export function CertificateFilters({ onFilterChange }: CertificateFiltersProps) 
       status: "all",
       emailStatus: "all",
       dateFilter: "all",
+      customDateFrom: "",
+      customDateTo: "",
     };
     setFilters(resetFilters);
     setSearchInput("");
+    setCustomDateFrom("");
+    setCustomDateTo("");
+    setShowCustomDatePicker(false);
+    setDateError("");
     onFilterChange(resetFilters);
   };
 
@@ -121,6 +179,7 @@ export function CertificateFilters({ onFilterChange }: CertificateFiltersProps) 
             <SelectItem value="last_7_days">Last 7 Days</SelectItem>
             <SelectItem value="last_30_days">Last 30 Days</SelectItem>
             <SelectItem value="this_year">This Year</SelectItem>
+            <SelectItem value="custom">Custom Range</SelectItem>
           </SelectContent>
         </Select>
 
@@ -178,6 +237,66 @@ export function CertificateFilters({ onFilterChange }: CertificateFiltersProps) 
           </SelectContent>
         </Select>
       </div>
+
+      {/* Custom Date Range Picker */}
+      {showCustomDatePicker && (
+        <div className="bg-muted/30 border border-border rounded-lg p-4 space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="flex-1 space-y-2">
+              <label className="text-sm font-medium text-foreground">From Date</label>
+              <Input
+                type="date"
+                value={customDateFrom}
+                onChange={(e) => setCustomDateFrom(e.target.value)}
+                max={customDateTo || undefined}
+                className="w-full"
+              />
+            </div>
+            <div className="flex-1 space-y-2">
+              <label className="text-sm font-medium text-foreground">To Date</label>
+              <Input
+                type="date"
+                value={customDateTo}
+                onChange={(e) => setCustomDateTo(e.target.value)}
+                min={customDateFrom || undefined}
+                className="w-full"
+              />
+            </div>
+            <div className="flex items-end gap-2">
+              <Button
+                size="sm"
+                onClick={handleCustomDateApply}
+                disabled={!customDateFrom || !customDateTo}
+                style={{ backgroundColor: 'var(--color-brand-primary)' }}
+                className="text-white"
+              >
+                Apply
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setShowCustomDatePicker(false);
+                  setCustomDateFrom("");
+                  setCustomDateTo("");
+                  setDateError("");
+                  updateFilter("dateFilter", "all");
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+          {dateError && (
+            <p className="text-sm text-red-600">{dateError}</p>
+          )}
+          {filters.customDateFrom && filters.customDateTo && !dateError && (
+            <p className="text-sm text-muted-foreground">
+              Showing certificates from {new Date(filters.customDateFrom).toLocaleDateString()} to {new Date(filters.customDateTo).toLocaleDateString()}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

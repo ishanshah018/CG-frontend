@@ -2,13 +2,14 @@
 
 import { useAuth } from "@/lib/auth"
 import { useRouter } from "next/navigation"
-import { useState, useEffect } from "react"
+import { useState, useEffect, Fragment } from "react"
 import { getBaseCertificateTemplate, getDashboardInsights, getDashboardGraph, type DashboardInsightsData, type DashboardGraphData } from "@/lib/api/certificates"
-import { FileCheck, TrendingUp, Calendar, CheckCircle2, AlertCircle } from "lucide-react"
+import { FileCheck, TrendingUp, Calendar, CheckCircle2, AlertCircle, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useUsage } from "@/app/(dashboard)/layout"
-import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts"
+import { Area, AreaChart, ResponsiveContainer, Tooltip as ChartTooltip, XAxis, YAxis, CartesianGrid } from "recharts"
 
 // Skeleton loader component
 const Skeleton = ({ className }: { className?: string }) => (
@@ -99,24 +100,41 @@ export default function DashboardPage() {
     return type.charAt(0).toUpperCase() + type.slice(1)
   }
 
+  // Format reset date to readable format
+  const formatResetDate = (isoDate: string) => {
+    const date = new Date(isoDate);
+    return date.toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
+
   const stats = [
     {
       icon: FileCheck,
       label: "Total Certificates Issued",
       value: isInsightsLoading ? <Skeleton className="w-16 h-8" /> : insights?.total_issued.toString() ?? "0",
-      color: "text-blue-600"
+      color: "text-blue-600",
+      tooltip: "This is the total number of certificates issued since your account was created. This is NOT your monthly limit."
     },
     {
       icon: Calendar,
-      label: "Certificates This Month",
+      label: "Certificates Issued This Month",
       value: isInsightsLoading ? <Skeleton className="w-16 h-8" /> : insights?.issued_this_month.toString() ?? "0",
-      color: "text-green-600"
+      color: "text-green-600",
+      tooltip: "Certificates generated in the current billing month only. This does not represent your monthly limit usage."
     },
     {
       icon: TrendingUp,
-      label: "Remaining Monthly Limit",
-      value: usage ? usage.remaining.toString() : <Skeleton className="w-16 h-8" />,
-      color: "text-purple-600"
+      label: "Monthly Limit Used",
+      value: isInsightsLoading ? <Skeleton className="w-16 h-8" /> : (
+        insights ? `${insights.monthly_certificates_used} / ${insights.monthly_certificate_limit}` : "0 / 0"
+      ),
+      color: "text-purple-600",
+      subtext: insights?.billing_cycle?.resets_at ? `Monthly limit resets on ${formatResetDate(insights.billing_cycle.resets_at)}` : null,
+      helperText: insights ? `${insights.remaining_monthly_limit} remaining` : null,
+      tooltip: "This shows how many certificates you have used from your monthly plan limit."
     },
     {
       icon: CheckCircle2,
@@ -149,28 +167,133 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {stats.map((stat, index) => (
-            <div 
-              key={index}
-              className="bg-card border border-border rounded-lg p-5 hover:shadow-sm transition-shadow"
-            >
-              <div className="flex items-start justify-between">
-                <div className="space-y-2 flex-1">
-                  <p className="text-xs text-muted-foreground font-medium">
-                    {stat.label}
-                  </p>
-                  <div className="text-2xl font-semibold text-foreground">
-                    {stat.value}
+        {/* Stats Strip - Modern SaaS Metrics Bar */}
+        <div className="relative">
+          {/* Top gradient line with glow */}
+          <div className="absolute top-0 left-0 right-0 h-0.5 bg-linear-to-r from-transparent via-[#2696be]/40 to-transparent">
+            <div className="h-full bg-linear-to-r from-transparent via-[#2696be]/20 to-transparent blur-sm"></div>
+          </div>
+          
+          {/* Stats container - Compact with visible dividers */}
+          <div className="py-4 px-4">
+            {/* Desktop layout - single row with dividers */}
+            <div className="hidden lg:flex items-center justify-between">
+              {stats.map((stat, index) => (
+                <Fragment key={index}>
+                  {/* Metric block */}
+                  <div 
+                    className="flex flex-col items-center justify-center text-center space-y-2 px-4 flex-1 min-h-25"
+                  >
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        {stat.label}
+                      </p>
+                      {stat.tooltip && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button className="text-muted-foreground hover:text-foreground transition-colors">
+                              <Info className="w-3.5 h-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-xs">
+                            <p className="text-xs leading-relaxed">{stat.tooltip}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      {stat.icon && (
+                        <stat.icon className={`w-5 h-5 ${stat.color}`} />
+                      )}
+                      <span className="text-3xl font-bold text-foreground tabular-nums">
+                        {stat.value}
+                      </span>
+                    </div>
+                    
+                    {stat.helperText && (
+                      <p className="text-xs text-muted-foreground font-bold">
+                        {stat.helperText}
+                      </p>
+                    )}
+                    
+                    {stat.subtext && (
+                      <p className="text-xs text-muted-foreground/80">
+                        {stat.subtext}
+                      </p>
+                    )}
                   </div>
-                </div>
-                <div className={`p-2 rounded-lg bg-muted/50 ${stat.color}`}>
-                  <stat.icon className="w-5 h-5" />
-                </div>
-              </div>
+                  
+                  {/* Visible vertical divider */}
+                  {index < stats.length - 1 && (
+                    <div 
+                      className="shrink-0 self-center"
+                      style={{
+                        width: '1px',
+                        height: '64%',
+                        backgroundColor: 'rgba(0, 0, 0, 0.25)',
+                        minHeight: '64px'
+                      }}
+                    />
+                  )}
+                </Fragment>
+              ))}
             </div>
-          ))}
+            
+            {/* Mobile/Tablet layout - 2x2 grid */}
+            <div className="grid grid-cols-2 gap-4 lg:hidden">
+              {stats.map((stat, index) => (
+                <div 
+                  key={index}
+                  className="flex flex-col items-center justify-center text-center space-y-1.5 px-2 py-3"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      {stat.label}
+                    </p>
+                    {stat.tooltip && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button className="text-muted-foreground hover:text-foreground transition-colors">
+                            <Info className="w-3 h-3" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs">
+                          <p className="text-xs leading-relaxed">{stat.tooltip}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center gap-1.5">
+                    {stat.icon && (
+                      <stat.icon className={`w-4 h-4 ${stat.color}`} />
+                    )}
+                    <span className="text-xl sm:text-2xl font-bold text-foreground tabular-nums">
+                      {stat.value}
+                    </span>
+                  </div>
+                  
+                  {stat.helperText && (
+                    <p className="text-[10px] sm:text-xs text-muted-foreground font-bold">
+                      {stat.helperText}
+                    </p>
+                  )}
+                  
+                  {stat.subtext && (
+                    <p className="text-[9px] sm:text-xs text-muted-foreground/80">
+                      {stat.subtext}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {/* Bottom gradient line with glow */}
+          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-linear-to-r from-transparent via-[#2696be]/40 to-transparent">
+            <div className="h-full bg-linear-to-r from-transparent via-[#2696be]/20 to-transparent blur-sm"></div>
+          </div>
         </div>
 
         {/* Base Template Warning */}
@@ -207,7 +330,7 @@ export default function DashboardPage() {
           </h2>
 
           {/* Most Issued Highlight Card */}
-          <div className="bg-gradient-to-br from-brand-primary/10 to-brand-primary/5 border border-brand-primary/20 rounded-lg p-5">
+          <div className="bg-linear-to-br from-brand-primary/10 to-brand-primary/5 border border-brand-primary/20 rounded-lg p-5">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-brand-primary/10 rounded-lg">
                 <TrendingUp className="w-5 h-5 text-brand-primary" />
@@ -287,13 +410,13 @@ export default function DashboardPage() {
 
         {/* Graph Section */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <h2 className="text-xl font-semibold text-foreground">
               Certificate Generation Trend
             </h2>
             {isMounted && (
               <Select value={selectedYear.toString()} onValueChange={handleYearChange}>
-                <SelectTrigger className="w-32">
+                <SelectTrigger className="w-full sm:w-32">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -307,13 +430,13 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div className="bg-card border border-border rounded-lg p-6">
+          <div className="bg-card border border-border rounded-lg p-4 sm:p-6">
             {isGraphLoading ? (
-              <div className="h-80 flex items-center justify-center">
+              <div className="h-56 sm:h-80 flex items-center justify-center">
                 <Skeleton className="w-full h-full" />
               </div>
             ) : !hasGraphData ? (
-              <div className="h-80 flex flex-col items-center justify-center text-center">
+              <div className="h-56 sm:h-80 flex flex-col items-center justify-center text-center">
                 <div className="p-4 bg-muted/50 rounded-full mb-4">
                   <FileCheck className="w-8 h-8 text-muted-foreground" />
                 </div>
@@ -322,8 +445,9 @@ export default function DashboardPage() {
                 </h3>
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={320}>
-                <AreaChart
+              <div className="h-60 sm:h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
                   data={graphData?.points ?? []}
                   margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
                 >
@@ -348,7 +472,7 @@ export default function DashboardPage() {
                     axisLine={false}
                     allowDecimals={false}
                   />
-                  <Tooltip
+                  <ChartTooltip
                     contentStyle={{
                       backgroundColor: 'white',
                       border: '1px solid #e5e7eb',
@@ -370,6 +494,7 @@ export default function DashboardPage() {
                   />
                 </AreaChart>
               </ResponsiveContainer>
+            </div>
             )}
           </div>
         </div>

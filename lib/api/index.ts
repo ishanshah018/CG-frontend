@@ -6,3 +6,4 @@
 export * from "./config";
 export * from "./auth";
 export * from "./certificates";
+export * from "./account";

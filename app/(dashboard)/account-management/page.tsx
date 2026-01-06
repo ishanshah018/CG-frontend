@@ -20,11 +20,14 @@ Loader2,
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { getOrganizationProfile, updateOrganizationProfile, changePassword } from "@/lib/api/account"
+import { getDashboardInsights, type DashboardInsightsData } from "@/lib/api/certificates"
+import { API_CONFIG, STORAGE_KEYS } from "@/lib/api/config"
 
 // Toggle component
 const Toggle = ({ checked, onChange }: { checked: boolean; onChange: (val: boolean) => void }) => (
@@ -48,7 +51,7 @@ className={`
 )
 
 export default function AccountManagementPage() {
-useAuth()
+const { user, plan } = useAuth()
 
 // Organization Profile state
 const [isLoadingProfile, setIsLoadingProfile] = useState(true)
@@ -67,19 +70,29 @@ const [passwordError, setPasswordError] = useState("")
 const [notifCertGenerated, setNotifCertGenerated] = useState(true)
 const [notifCertFailed, setNotifCertFailed] = useState(true)
 const [notifUsageLimit, setNotifUsageLimit] = useState(false)
+
+// Delete modal state
 const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+const [deleteStep, setDeleteStep] = useState<'warning' | 'confirm' | 'deleting'>('warning')
+const [deleteConfirmed, setDeleteConfirmed] = useState(false)
+const [deleteError, setDeleteError] = useState('')
+
+// Usage insights state
+const [insights, setInsights] = useState<DashboardInsightsData | null>(null)
+const [isLoadingInsights, setIsLoadingInsights] = useState(true)
 
 // Static mock data
 const mockData = {
 lastPasswordUpdate: "December 15, 2024",
-monthlyLimit: 100,
-certificatesUsed: 47,
-resetDate: "January 1, 2025",
-currentRole: "Owner",
 teamMembers: 1,
 }
 
-// Fetch organization profile on mount
+// Format role for display
+const formatRole = (role: string) => {
+return role.charAt(0).toUpperCase() + role.slice(1)
+}
+
+// Fetch organization profile and insights on mount
 useEffect(() => {
 const fetchProfile = async () => {
 try {
@@ -93,7 +106,19 @@ setIsLoadingProfile(false)
 }
 }
 
+const fetchInsights = async () => {
+try {
+const response = await getDashboardInsights()
+setInsights(response.data)
+} catch (error) {
+toast.error(error instanceof Error ? error.message : "Failed to load usage data")
+} finally {
+setIsLoadingInsights(false)
+}
+}
+
 fetchProfile()
+fetchInsights()
 }, [])
 
 // Handle profile update
@@ -149,6 +174,83 @@ setIsChangingPassword(false)
 }
 }
 
+// Handle delete modal open
+const handleOpenDeleteModal = () => {
+setDeleteModalOpen(true)
+setDeleteStep('warning')
+setDeleteConfirmed(false)
+setDeleteError('')
+}
+
+// Handle delete modal close
+const handleCloseDeleteModal = () => {
+if (deleteStep === 'deleting') return // Prevent closing during deletion
+setDeleteModalOpen(false)
+setDeleteStep('warning')
+setDeleteConfirmed(false)
+setDeleteError('')
+}
+
+// Handle continue to confirmation step
+const handleContinueToConfirm = () => {
+setDeleteStep('confirm')
+setDeleteConfirmed(false)
+setDeleteError('')
+}
+
+// Handle delete organization
+const handleDeleteOrganization = async () => {
+if (!deleteConfirmed) return
+
+setDeleteStep('deleting')
+setDeleteError('')
+
+try {
+const token = sessionStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN)
+
+if (!token) {
+throw new Error('No authentication token found')
+}
+
+const response = await fetch(
+`${API_CONFIG.BASE_URL}/api/account/organization`,
+{
+method: 'DELETE',
+headers: {
+'Authorization': `Bearer ${token}`,
+'Content-Type': 'application/json',
+'x-confirm-delete': 'true',
+},
+}
+)
+
+const data = await response.json()
+
+if (!response.ok) {
+throw new Error(data.message || 'Failed to delete organization')
+}
+
+// SUCCESS: Clear all client-side data
+if (typeof window !== 'undefined') {
+localStorage.clear()
+sessionStorage.clear()
+}
+
+// Show farewell message
+toast.success('Your organization has been permanently deleted. Thank you for using CertGen.')
+
+// Force redirect to homepage
+setTimeout(() => {
+window.location.href = '/'
+}, 1500)
+
+} catch (error) {
+setDeleteError(error instanceof Error ? error.message : 'Something went wrong while deleting your organization. Please try again.')
+setDeleteStep('confirm') // Go back to confirm step
+setDeleteConfirmed(false) // Reset checkbox
+}
+}
+
 return (
 <div className="max-w-4xl mx-auto p-6 space-y-8">
 {/* Page Header */}
@@ -159,10 +261,65 @@ return (
 </p>
 </div>
 
+{/* Free Plan Upgrade Banner */}
+{plan?.name === "free" && (
+<div 
+className="flex items-center justify-between gap-4 p-4 rounded-xl transition-all duration-200 hover:shadow-md"
+style={{
+    backgroundColor: 'rgba(37, 150, 190, 0.05)',
+    border: '1px solid rgba(37, 150, 190, 0.15)',
+    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.04)'
+}}
+>
+<div className="flex items-start gap-3 flex-1">
+    {/* Info Icon */}
+    <div className="shrink-0 mt-0.5">
+    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--color-brand-primary)' }}>
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="16" x2="12" y2="12"/>
+        <line x1="12" y1="8" x2="12.01" y2="8"/>
+    </svg>
+    </div>
+    
+    {/* Text Content */}
+    <div className="space-y-0.5">
+    <p className="text-sm font-semibold text-gray-800">
+        You are currently on the Free plan
+    </p>
+    <p className="text-xs text-gray-600">
+        Upgrade anytime to unlock higher certificate limits and email delivery.
+    </p>
+    </div>
+</div>
+
+{/* Upgrade Button */}
+<button
+    onClick={() => window.location.href = '/pricing'}
+    className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white rounded-lg transition-all duration-200 whitespace-nowrap"
+    style={{
+    backgroundColor: 'var(--color-brand-primary)',
+    boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
+    }}
+    onMouseEnter={(e) => {
+    e.currentTarget.style.backgroundColor = 'var(--color-brand-primary-hover)'
+    e.currentTarget.style.transform = 'translateY(-1px)'
+    e.currentTarget.style.boxShadow = '0 2px 4px 0 rgba(0, 0, 0, 0.08)'
+    }}
+    onMouseLeave={(e) => {
+    e.currentTarget.style.backgroundColor = 'var(--color-brand-primary)'
+    e.currentTarget.style.transform = 'translateY(0)'
+    e.currentTarget.style.boxShadow = '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
+    }}
+>
+    Upgrade plan →
+</button>
+</div>
+)}
+
 <Separator />
 
 {/* 1️⃣ ORGANIZATION PROFILE */}
-<section className="bg-card border border-border rounded-lg p-6 space-y-6">
+<section data-section="organization-profile" className="bg-card border border-border rounded-lg p-6 space-y-6">
 <div className="flex items-center gap-3">
     <div className="p-2 bg-blue-50 rounded-lg">
     <Building2 className="w-5 h-5 text-blue-600" />
@@ -223,7 +380,7 @@ return (
 </section>
 
 {/* 2️⃣ ACCOUNT SECURITY */}
-<section className="bg-card border border-border rounded-lg p-6 space-y-6">
+<section data-section="account-security" className="bg-card border border-border rounded-lg p-6 space-y-6">
 <div className="flex items-center gap-3">
     <div className="p-2 bg-green-50 rounded-lg">
     <Shield className="w-5 h-5 text-green-600" />
@@ -251,45 +408,6 @@ return (
     >
         Change Password
     </Button>
-    </div>
-
-    <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
-    <div className="space-y-1">
-        <div className="flex items-center gap-2">
-        <LogOut className="w-4 h-4 text-muted-foreground" />
-        <p className="font-medium text-foreground">Active Sessions</p>
-        </div>
-        <p className="text-sm text-muted-foreground">Sign out from all devices and browsers</p>
-    </div>
-    <Button 
-        variant="outline" 
-        size="sm"
-        className="border-2 border-gray-200 hover:border-brand-primary"
-    >
-        Logout Everywhere
-    </Button>
-    </div>
-
-    <Separator />
-
-    <div className="space-y-3">
-    <p className="text-sm font-medium text-muted-foreground">Coming Soon</p>
-    
-    <div className="flex items-center justify-between opacity-50">
-        <div className="space-y-1">
-        <p className="font-medium text-foreground">Two-Factor Authentication</p>
-        <p className="text-sm text-muted-foreground">Add an extra layer of security to your account</p>
-        </div>
-        <Badge variant="outline">Coming Soon</Badge>
-    </div>
-
-    <div className="flex items-center justify-between opacity-50">
-        <div className="space-y-1">
-        <p className="font-medium text-foreground">Session Timeout</p>
-        <p className="text-sm text-muted-foreground">Automatically log out after period of inactivity</p>
-        </div>
-        <Badge variant="outline">Coming Soon</Badge>
-    </div>
     </div>
 </div>
 </section>
@@ -355,48 +473,65 @@ return (
 </div>
 
 <div className="space-y-4">
-    <div className="grid sm:grid-cols-3 gap-4">
-    <div className="text-center p-4 bg-muted/30 rounded-lg">
-        <p className="text-2xl font-bold text-foreground">{mockData.certificatesUsed}</p>
-        <p className="text-xs text-muted-foreground mt-1">Used</p>
-    </div>
-    <div className="text-center p-4 bg-muted/30 rounded-lg">
-        <p className="text-2xl font-bold text-foreground">{mockData.monthlyLimit}</p>
-        <p className="text-xs text-muted-foreground mt-1">Monthly Limit</p>
-    </div>
-    <div className="text-center p-4 bg-muted/30 rounded-lg">
-        <p className="text-2xl font-bold text-foreground">{mockData.monthlyLimit - mockData.certificatesUsed}</p>
-        <p className="text-xs text-muted-foreground mt-1">Remaining</p>
-    </div>
-    </div>
+    {isLoadingInsights ? (
+      <div className="space-y-4">
+        <div className="grid sm:grid-cols-3 gap-4">
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-20 w-full" />
+        </div>
+        <Skeleton className="h-16 w-full" />
+      </div>
+    ) : insights ? (
+      <>
+        <div className="grid sm:grid-cols-3 gap-4">
+          <div className="text-center p-4 bg-muted/30 rounded-lg">
+            <p className="text-2xl font-bold text-foreground">{insights.monthly_certificates_used}</p>
+            <p className="text-xs text-muted-foreground mt-1">Used</p>
+          </div>
+          <div className="text-center p-4 bg-muted/30 rounded-lg">
+            <p className="text-2xl font-bold text-foreground">{insights.monthly_certificate_limit}</p>
+            <p className="text-xs text-muted-foreground mt-1">Monthly Limit</p>
+          </div>
+          <div className="text-center p-4 bg-muted/30 rounded-lg">
+            <p className="text-2xl font-bold text-foreground">{insights.remaining_monthly_limit}</p>
+            <p className="text-xs text-muted-foreground mt-1">Remaining</p>
+          </div>
+        </div>
 
-    <div className="space-y-2">
-    <div className="flex justify-between text-sm">
-        <span className="text-muted-foreground">Progress</span>
-        <span className="font-medium text-foreground">{Math.round((mockData.certificatesUsed / mockData.monthlyLimit) * 100)}%</span>
-    </div>
-    <div className="w-full bg-muted rounded-full h-2.5">
-        <div
-        className="bg-brand-primary h-2.5 rounded-full transition-all"
-        style={{ width: `${(mockData.certificatesUsed / mockData.monthlyLimit) * 100}%` }}
-        />
-    </div>
-    <p className="text-xs text-muted-foreground flex items-center gap-1">
-        <Calendar className="w-3 h-3" />
-        Resets on {mockData.resetDate}
-    </p>
-    </div>
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Progress</span>
+            <span className="font-medium text-foreground">
+              {Math.round((insights.monthly_certificates_used / insights.monthly_certificate_limit) * 100)}%
+            </span>
+          </div>
+          <div className="w-full bg-muted rounded-full h-2.5">
+            <div
+              className="bg-brand-primary h-2.5 rounded-full transition-all"
+              style={{ width: `${(insights.monthly_certificates_used / insights.monthly_certificate_limit) * 100}%` }}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground flex items-center gap-1">
+            <Calendar className="w-3 h-3" />
+            Resets on {new Date(insights.billing_cycle.resets_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+          </p>
+        </div>
+      </>
+    ) : (
+      <p className="text-center text-muted-foreground">Failed to load usage data</p>
+    )}
 
     <Separator />
 
     <Button variant="outline" className="w-full sm:w-auto border-2 border-gray-200 hover:border-brand-primary">
-    View Billing Details →
+      View Billing Details →
     </Button>
 </div>
 </section>
 
 {/* 6️⃣ TEAM & ACCESS */}
-<section className="bg-card border border-border rounded-lg p-6 space-y-6 opacity-60">
+<section data-section="team-access" className="bg-card border border-border rounded-lg p-6 space-y-6 opacity-60">
 <div className="flex items-center gap-3">
     <div className="p-2 bg-indigo-50 rounded-lg">
     <Users className="w-5 h-5 text-indigo-600" />
@@ -413,7 +548,7 @@ return (
         <p className="font-medium text-foreground">Your Role</p>
         <p className="text-sm text-muted-foreground">Full administrative access</p>
     </div>
-    <Badge>{mockData.currentRole}</Badge>
+    <Badge>{user?.role ? formatRole(user.role) : "Loading..."}</Badge>
     </div>
 
     <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
@@ -435,38 +570,22 @@ return (
 </section>
 
 {/* 7️⃣ DANGER ZONE */}
-<section className="bg-red-50 border-2 border-red-200 rounded-lg p-6 space-y-6">
-<div className="flex items-center gap-3">
+<section className="bg-red-50 border-2 border-red-200 rounded-lg p-6 space-y-4">
+<div className="flex items-center justify-between">
+    <div className="flex items-center gap-3">
     <div className="p-2 bg-red-100 rounded-lg">
-    <AlertTriangle className="w-5 h-5 text-red-600" />
+        <AlertTriangle className="w-5 h-5 text-red-600" />
     </div>
     <div>
-    <h2 className="text-xl font-semibold text-red-900">Danger Zone</h2>
-    <p className="text-sm text-red-700">Irreversible and destructive actions</p>
+        <h2 className="text-xl font-semibold text-red-900">Danger Zone</h2>
+        <p className="text-sm text-red-700">Irreversible and destructive actions</p>
     </div>
-</div>
-
-<div className="bg-white border border-red-200 rounded-lg p-6 space-y-4">
-    <div className="space-y-2">
-    <h3 className="font-semibold text-foreground">Delete Organization</h3>
-    <p className="text-sm text-muted-foreground">
-        This action is <strong>irreversible</strong> and will permanently delete:
-    </p>
-    <ul className="text-sm text-muted-foreground space-y-1 ml-4 list-disc">
-        <li>All certificates and certificate data</li>
-        <li>Base certificate templates</li>
-        <li>All mappings and configurations</li>
-        <li>User accounts and team members</li>
-        <li>Billing information and history</li>
-    </ul>
     </div>
-
     <Button
-    variant="destructive"
-    className="w-full sm:w-auto"
-    onClick={() => setDeleteModalOpen(true)}
+    variant="outline"
+    className="border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
+    onClick={handleOpenDeleteModal}
     >
-    <Trash2 className="w-4 h-4 mr-2" />
     Delete Organization
     </Button>
 </div>
@@ -547,32 +666,125 @@ return (
 </DialogContent>
 </Dialog>
 
-{/* Delete Confirmation Modal */}
-<Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
-<DialogContent>
-    <DialogHeader>
-    <DialogTitle className="flex items-center gap-2 text-red-600">
-        <AlertTriangle className="w-5 h-5" />
-        Delete Organization?
-    </DialogTitle>
-    <DialogDescription className="space-y-3 pt-4">
-        <p>
-        This action <strong>cannot be undone</strong>. This will permanently delete your organization
-        and all associated data.
+{/* Delete Organization Modal - Multi-Step Flow */}
+<Dialog open={deleteModalOpen} onOpenChange={handleCloseDeleteModal}>
+<DialogContent className="sm:max-w-125" onPointerDownOutside={(e) => deleteStep === 'deleting' && e.preventDefault()}>
+    {deleteStep === 'warning' && (
+    <>
+        <DialogHeader>
+        <DialogTitle className="flex items-center gap-2 text-red-600 text-xl">
+            <AlertTriangle className="w-6 h-6" />
+            Delete Organization?
+        </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 pt-4">
+        <p className="text-base font-medium text-foreground">
+            This action is permanent and cannot be undone.
         </p>
-        <p className="text-sm">
-        All certificates, templates, and configurations will be lost forever.
-        </p>
-    </DialogDescription>
-    </DialogHeader>
-    <DialogFooter className="gap-2">
-    <Button variant="outline" onClick={() => setDeleteModalOpen(false)}>
-        Cancel
-    </Button>
-    <Button variant="destructive" disabled>
-        I understand, delete everything
-    </Button>
-    </DialogFooter>
+        <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">The following will be permanently deleted:</p>
+            <ul className="text-sm text-muted-foreground space-y-2 ml-4 list-disc">
+            <li>All certificates and certificate data</li>
+            <li>Base certificate templates</li>
+            <li>All mappings and configurations</li>
+            <li>User accounts and team members</li>
+            <li>Billing information and history</li>
+            </ul>
+        </div>
+        </div>
+        <DialogFooter className="gap-2 sm:gap-2">
+        <Button variant="outline" onClick={handleCloseDeleteModal} className="w-full sm:w-auto">
+            Cancel
+        </Button>
+        <Button 
+            variant="outline" 
+            className="w-full sm:w-auto border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
+            onClick={handleContinueToConfirm}
+        >
+            Continue
+        </Button>
+        </DialogFooter>
+    </>
+    )}
+
+    {deleteStep === 'confirm' && (
+    <>
+        <DialogHeader>
+        <DialogTitle className="flex items-center gap-2 text-red-600 text-xl">
+            <AlertTriangle className="w-6 h-6" />
+            Final Confirmation
+        </DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-6 py-4">
+        {deleteError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm text-red-600">{deleteError}</p>
+            </div>
+        )}
+
+        <div className="flex items-start space-x-3">
+            <Checkbox 
+            id="confirm-delete" 
+            checked={deleteConfirmed}
+            onCheckedChange={(checked) => setDeleteConfirmed(checked === true)}
+            className="mt-1"
+            />
+            <label 
+            htmlFor="confirm-delete" 
+            className="text-sm font-medium leading-relaxed cursor-pointer select-none"
+            >
+            I understand this action is permanent and cannot be undone.
+            </label>
+        </div>
+
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <p className="text-sm text-red-800">
+            This will permanently delete your organization and all associated data.
+            </p>
+        </div>
+        </div>
+
+        <DialogFooter className="gap-2 sm:gap-2">
+        <Button variant="outline" onClick={handleCloseDeleteModal} className="w-full sm:w-auto">
+            Cancel
+        </Button>
+        <Button 
+            variant="destructive"
+            className="w-full sm:w-auto bg-red-600 hover:bg-red-700"
+            onClick={handleDeleteOrganization}
+            disabled={!deleteConfirmed}
+        >
+            Delete Forever
+        </Button>
+        </DialogFooter>
+    </>
+    )}
+
+    {deleteStep === 'deleting' && (
+    <>
+        <DialogHeader>
+        <DialogTitle className="flex items-center gap-2 text-red-600 text-xl">
+            <Loader2 className="w-6 h-6 animate-spin" />
+            Deleting Organization
+        </DialogTitle>
+        </DialogHeader>
+        
+        <div className="py-8 text-center space-y-4">
+        <div className="flex justify-center">
+            <Loader2 className="w-12 h-12 animate-spin text-red-600" />
+        </div>
+        <div className="space-y-2">
+            <p className="text-base font-medium text-foreground">
+            Deleting your organization...
+            </p>
+            <p className="text-sm text-muted-foreground">
+            This may take a few moments.
+            </p>
+        </div>
+        </div>
+    </>
+    )}
 </DialogContent>
 </Dialog>
 </div>

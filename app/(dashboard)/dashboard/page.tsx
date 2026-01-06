@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth"
 import { useRouter } from "next/navigation"
 import { useState, useEffect, Fragment } from "react"
 import { getBaseCertificateTemplate, getDashboardInsights, getDashboardGraph, type DashboardInsightsData, type DashboardGraphData } from "@/lib/api/certificates"
-import { FileCheck, TrendingUp, Calendar, CheckCircle2, AlertCircle, Info } from "lucide-react"
+import { FileCheck, TrendingUp, Calendar, CheckCircle2, AlertCircle, Info, Lock, Mail, Users, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -499,6 +499,95 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Quick Account Actions Section */}
+      <div className="space-y-6 mt-12">
+        {/* Header */}
+        <div className="space-y-1">
+          <h2 className="text-xl font-semibold text-foreground">Quick Account Actions</h2>
+          <p className="text-sm text-muted-foreground">Manage your team, security, and account preferences</p>
+        </div>
+
+          {/* Action Items Grid */}
+          <div className="grid gap-3 sm:grid-cols-1 lg:grid-cols-3">
+            {/* Action 1: Change Password */}
+            <button
+              onClick={() => {
+                router.push('/account-management')
+                // Allow navigation to complete, then scroll to Account Security section
+                setTimeout(() => {
+                  const securitySection = document.querySelector('[data-section="account-security"]')
+                  if (securitySection) {
+                    securitySection.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                  }
+                }, 100)
+              }}
+              className="group flex items-center gap-4 p-4 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors text-left w-full"
+            >
+              <div className="shrink-0 p-2 bg-blue-50 rounded-lg group-hover:bg-blue-100 transition-colors">
+                <Lock className="w-5 h-5 text-blue-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-foreground mb-0.5">Change your password</h3>
+                <p className="text-sm text-muted-foreground line-clamp-1">Keep your account secure by updating your password</p>
+              </div>
+              <ChevronRight className="shrink-0 w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+            </button>
+
+            {/* Action 2: Update Primary Email */}
+            <button
+              onClick={() => {
+                router.push('/account-management')
+                // Allow navigation to complete, then scroll to Organization Profile section
+                setTimeout(() => {
+                  const profileSection = document.querySelector('[data-section="organization-profile"]')
+                  if (profileSection) {
+                    profileSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                  }
+                }, 100)
+              }}
+              className="group flex items-center gap-4 p-4 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors text-left w-full"
+            >
+              <div className="shrink-0 p-2 bg-green-50 rounded-lg group-hover:bg-green-100 transition-colors">
+                <Mail className="w-5 h-5 text-green-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-foreground mb-0.5">Update your primary email</h3>
+                <p className="text-sm text-muted-foreground line-clamp-1">Change the email used for admin communication and certificates</p>
+              </div>
+              <ChevronRight className="shrink-0 w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+            </button>
+
+            {/* Action 3: Add Team Members */}
+            <button
+              onClick={() => {
+                router.push('/account-management')
+                // Allow navigation to complete, then scroll to Team & Access section
+                setTimeout(() => {
+                  const teamSection = document.querySelector('[data-section="team-access"]')
+                  if (teamSection) {
+                    teamSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                  }
+                }, 100)
+              }}
+              className="group flex items-center gap-4 p-4 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors text-left w-full"
+            >
+              <div className="shrink-0 p-2 bg-purple-50 rounded-lg group-hover:bg-purple-100 transition-colors">
+                <Users className="w-5 h-5 text-purple-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-foreground mb-0.5 flex items-center gap-2">
+                  Add team members
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-muted text-muted-foreground">
+                    Coming Soon
+                  </span>
+                </h3>
+                <p className="text-sm text-muted-foreground line-clamp-1">Invite teammates and manage access permissions</p>
+              </div>
+              <ChevronRight className="shrink-0 w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+            </button>
+          </div>
+        </div>
     </div>
   )
 }

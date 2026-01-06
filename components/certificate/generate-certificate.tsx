@@ -7,6 +7,7 @@ import { CertificatePreview } from "./certificate-preview"
 import { CertificateActionTooltip } from "./certificate-action-tooltip"
 import { generateCertificate, type CertificateType } from "@/lib/api/certificates"
 import { toast } from "sonner"
+import { useAuth } from "@/lib/auth"
 
 // Loading Dots Animation Component
 const LoadingDots = () => (
@@ -24,6 +25,14 @@ const LoadingDots = () => (
       style={{ animationDelay: "300ms", animationDuration: "0.6s" }}
     />
   </span>
+)
+
+// Lock Icon Component
+const LockIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+  </svg>
 )
 
 interface StyleObject {
@@ -102,6 +111,8 @@ export function GenerateCertificate({
   templateUrl,
   certificateType,
 }: GenerateCertificateProps) {
+  const { plan } = useAuth()
+  
   // Initialize form data with empty strings for all attributes
   const initialFormData = useMemo(() => {
     const data: Record<string, string> = {}
@@ -164,10 +175,13 @@ export function GenerateCertificate({
     return allFieldsFilled && emailValid
   }, [allFieldsFilled, emailValid])
 
-  // Check if form is valid for "Generate & Send" (requires email)
+  // Check if form is valid for "Generate & Send" (requires email + paid plan)
   const canGenerateAndSend = useMemo(() => {
-    return allFieldsFilled && emailValid
-  }, [allFieldsFilled, emailValid])
+    return allFieldsFilled && emailValid && plan?.name !== "free"
+  }, [allFieldsFilled, emailValid, plan])
+  
+  // Check if user is on free plan
+  const isFreePlan = plan?.name === "free"
 
   // Format dates for display in preview
   const formattedFormData = useMemo(() => {
@@ -490,25 +504,112 @@ export function GenerateCertificate({
             >
               <div className="flex-1">
                 <Button
-                  disabled={true}
+                  onClick={isFreePlan ? () => window.location.href = '/pricing' : handleGenerateAndSend}
+                  disabled={!canGenerateAndSend && !isFreePlan}
                   variant="outline"
-                  className="w-full h-10 font-medium whitespace-nowrap"
+                  className="w-full h-10 font-medium whitespace-nowrap flex items-center justify-center gap-2"
                   size="lg"
                   style={{ 
-                    borderColor: '#cbd5e1',
-                    color: '#94a3b8',
+                    borderColor: isFreePlan ? '#cbd5e1' : (canGenerateAndSend ? 'var(--color-brand-primary)' : '#cbd5e1'),
+                    color: isFreePlan ? '#94a3b8' : (canGenerateAndSend ? '#000000' : '#94a3b8'),
                     backgroundColor: 'white',
                     borderRadius: '8px',
-                    cursor: 'not-allowed',
-                    opacity: 0.6,
-                    pointerEvents: 'none'
+                    cursor: isFreePlan ? 'pointer' : (canGenerateAndSend ? 'pointer' : 'not-allowed'),
+                    opacity: isFreePlan ? 0.7 : (canGenerateAndSend ? 1 : 0.6),
+                    pointerEvents: 'auto'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (isFreePlan) {
+                      e.currentTarget.style.backgroundColor = '#f8fafc'
+                    } else if (canGenerateAndSend && !isGeneratingAndSending) {
+                      e.currentTarget.style.backgroundColor = '#2596be'
+                      e.currentTarget.style.color = 'white'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'white'
+                    if (!isFreePlan && canGenerateAndSend) {
+                      e.currentTarget.style.color = '#000000'
+                    }
                   }}
                 >
-                  Generate & Send
+                  {isFreePlan && <LockIcon />}
+                  {isGeneratingAndSending ? <LoadingDots /> : "Generate & Send"}
                 </Button>
               </div>
             </CertificateActionTooltip>
           </div>
+          
+          {/* Upgrade Visual Callout - Free Plan Only */}
+          {isFreePlan && (
+            <div className="flex justify-end mt-3 ml-4">
+              <div className="relative">
+                {/* Triangular Pointer - Right Side */}
+                <div 
+                  className="absolute right-8 -top-2"
+                  style={{
+                    width: 0,
+                    height: 0,
+                    borderLeft: '8px solid transparent',
+                    borderRight: '8px solid transparent',
+                    borderBottom: '8px solid #1f2937',
+                  }}
+                />
+                
+                {/* Premium Cloud Callout */}
+                <div 
+                  className="relative px-3.5 py-2.5 rounded-xl cursor-pointer transition-all duration-200"
+                  style={{
+                    backgroundColor: 'rgba(37, 150, 190, 0.04)',
+                    border: '1.5px dashed rgba(37, 150, 190, 0.2)',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -1px rgba(0, 0, 0, 0.04)'
+                  }}
+                  onClick={() => window.location.href = '/pricing'}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(37, 150, 190, 0.06)'
+                    e.currentTarget.style.boxShadow = '0 6px 8px -2px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(37, 150, 190, 0.04)'
+                    e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -1px rgba(0, 0, 0, 0.04)'
+                  }}
+                >
+                  <div className="flex flex-col gap-2">
+                    {/* Top Row: Lock Icon + Text */}
+                    <div className="flex items-center gap-2">
+                      <div className="shrink-0" style={{ color: 'var(--color-brand-primary)' }}>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                        </svg>
+                      </div>
+                      <p className="text-[11px] font-semibold text-gray-700 leading-snug">
+                        Upgrade to send certificates directly to students via email
+                      </p>
+                    </div>
+                    
+                    {/* Bottom Row: Upgrade Link */}
+                    <div className="flex justify-end">
+                      <button 
+                        className="text-[11px] font-semibold whitespace-nowrap transition-all"
+                        style={{ color: 'var(--color-brand-primary)' }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.textDecoration = 'underline'
+                          e.currentTarget.style.transform = 'translateX(2px)'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.textDecoration = 'none'
+                          e.currentTarget.style.transform = 'translateX(0)'
+                        }}
+                      >
+                        Upgrade now →
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right Panel - Live Preview (Sticky) */}

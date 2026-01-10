@@ -113,9 +113,16 @@ function AcceptInviteContent() {
       const response = await acceptInvitation({ token, password })
       
       // Backend returns: { success, message, token, user }
+      // Extract token (backend uses 'token' field)
+      const authToken = response.data.token || response.data.access_token
+      
+      if (!authToken) {
+        throw new Error("No authentication token received from server")
+      }
+      
       // Map to format expected by storeAuthData: { access_token, user }
       storeAuthData({
-        access_token: response.data.token || response.data.access_token,
+        access_token: authToken,
         user: response.data.user,
         organization: response.data.organization,
         plan: response.data.plan,

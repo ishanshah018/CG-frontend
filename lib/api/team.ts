@@ -183,17 +183,18 @@ export const acceptInvitation = async (
   success: boolean;
   message: string;
   data: {
-    access_token: string;
+    token?: string;
+    access_token?: string;
     user: {
       id: string;
       email: string;
       role: "owner" | "member";
     };
-    organization: {
+    organization?: {
       id: string;
       name: string;
     };
-    plan: {
+    plan?: {
       name: string;
       monthly_certificate_limit: number;
     };

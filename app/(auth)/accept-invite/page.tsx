@@ -112,20 +112,30 @@ function AcceptInviteContent() {
     try {
       const response = await acceptInvitation({ token, password })
       
-      // Backend returns: { success, message, token, user }
-      // Extract token (backend uses 'token' field)
-      const authToken = response.data.token || response.data.access_token
+      // Backend can return token at different levels - extract safely
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const responseData = response as any
+      const authToken = responseData?.data?.token || responseData?.data?.access_token || responseData?.token
       
       if (!authToken) {
         throw new Error("No authentication token received from server")
       }
       
+      // Extract user data from response (handle both response shapes)
+      const userData = responseData?.data?.user || responseData?.user
+      const orgData = responseData?.data?.organization || responseData?.organization
+      const planData = responseData?.data?.plan || responseData?.plan
+      
+      if (!userData) {
+        throw new Error("No user data received from server")
+      }
+      
       // Map to format expected by storeAuthData: { access_token, user }
       storeAuthData({
         access_token: authToken,
-        user: response.data.user,
-        organization: response.data.organization,
-        plan: response.data.plan,
+        user: userData,
+        organization: orgData,
+        plan: planData,
       })
       
       // Show success message

@@ -143,18 +143,29 @@ export async function signupUser(
 /**
  * Store authentication data in sessionStorage
  * Only stores necessary data (token, user, organization, plan)
+ * For invite accept: organization and plan are optional (will be fetched via /auth/me)
  */
-export function storeAuthData(data: LoginResponse["data"]): void {
+export function storeAuthData(data: LoginResponse["data"] | { access_token: string; user: User; organization?: Organization; plan?: Plan }): void {
   if (typeof window === "undefined") return;
 
   try {
+    if (!data.access_token) {
+      throw new Error("Missing authentication token");
+    }
+    
     sessionStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, data.access_token);
     sessionStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(data.user));
-    sessionStorage.setItem(
-      STORAGE_KEYS.ORGANIZATION,
-      JSON.stringify(data.organization)
-    );
-    sessionStorage.setItem(STORAGE_KEYS.PLAN, JSON.stringify(data.plan));
+    
+    // Organization and plan are optional (for invite accept flow)
+    if (data.organization) {
+      sessionStorage.setItem(
+        STORAGE_KEYS.ORGANIZATION,
+        JSON.stringify(data.organization)
+      );
+    }
+    if (data.plan) {
+      sessionStorage.setItem(STORAGE_KEYS.PLAN, JSON.stringify(data.plan));
+    }
   } catch (error) {
     console.error("Failed to store auth data:", error);
     throw new Error("Failed to save login session");

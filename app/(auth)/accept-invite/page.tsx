@@ -112,13 +112,19 @@ function AcceptInviteContent() {
     try {
       const response = await acceptInvitation({ token, password })
       
-      // Store authentication data - same as login flow
-      storeAuthData(response.data)
+      // Backend returns: { success, message, token, user }
+      // Map to format expected by storeAuthData: { access_token, user }
+      storeAuthData({
+        access_token: response.data.token || response.data.access_token,
+        user: response.data.user,
+        organization: response.data.organization,
+        plan: response.data.plan,
+      })
       
       // Show success message
       toast.success("Welcome to the team! Redirecting to dashboard...")
       
-      // Redirect to dashboard - use replace to prevent back navigation and add a small delay
+      // Redirect to dashboard - use window.location.href to force full reload
       setTimeout(() => {
         window.location.href = "/dashboard"
       }, 1000)

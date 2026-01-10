@@ -5,3 +5,5 @@
 
 export { AuthProvider, useAuth } from "./AuthProvider";
 export { ProtectedRoute } from "./ProtectedRoute";
+export { useRoleAccess } from "./useRoleAccess";
+export type { UserRole, RolePermissions } from "./useRoleAccess";

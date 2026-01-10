@@ -94,6 +94,14 @@
   * {
     border-color: var(--border);
   }
+
+  button {
+    cursor: pointer;
+  }
+
+  [role="button"] {
+    cursor: pointer;
+  }
 }
 
 /* -----------------------------------

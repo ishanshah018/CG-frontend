@@ -16,7 +16,9 @@ Calendar,
 Trash2,
 Settings,
 Loader2,
+ArrowRight,
 } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -27,6 +29,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { getOrganizationProfile, updateOrganizationProfile, changePassword } from "@/lib/api/account"
 import { getDashboardInsights, type DashboardInsightsData } from "@/lib/api/certificates"
+import { getTeamMembers } from "@/lib/api/team"
 import { API_CONFIG, STORAGE_KEYS } from "@/lib/api/config"
 
 // Toggle component
@@ -52,6 +55,7 @@ className={`
 
 export default function AccountManagementPage() {
 const { user, plan } = useAuth()
+const router = useRouter()
 
 // Organization Profile state
 const [isLoadingProfile, setIsLoadingProfile] = useState(true)
@@ -81,10 +85,13 @@ const [deleteError, setDeleteError] = useState('')
 const [insights, setInsights] = useState<DashboardInsightsData | null>(null)
 const [isLoadingInsights, setIsLoadingInsights] = useState(true)
 
+// Team members state
+const [totalMembers, setTotalMembers] = useState<number>(0)
+const [isLoadingTeamMembers, setIsLoadingTeamMembers] = useState(true)
+
 // Static mock data
 const mockData = {
 lastPasswordUpdate: "December 15, 2024",
-teamMembers: 1,
 }
 
 // Format role for display
@@ -117,8 +124,23 @@ setIsLoadingInsights(false)
 }
 }
 
+const fetchTeamMembers = async () => {
+try {
+const response = await getTeamMembers()
+if (response.data && typeof response.data.total_members === 'number') {
+setTotalMembers(response.data.total_members)
+}
+} catch (error) {
+// Silently fail - this is not critical
+setTotalMembers(0)
+} finally {
+setIsLoadingTeamMembers(false)
+}
+}
+
 fetchProfile()
 fetchInsights()
+fetchTeamMembers()
 }, [])
 
 // Handle profile update
@@ -334,12 +356,13 @@ style={{
     <div className="grid gap-2">
     <label className="text-sm font-medium text-foreground">Organization Name</label>
     {isLoadingProfile ? (
-        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full bg-gray-200 dark:bg-gray-700" style={{ background: 'linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite' }} />
     ) : (
         <Input 
         value={orgName}
         onChange={(e) => setOrgName(e.target.value)}
         placeholder="Your organization name"
+        className="border-2 border-gray-200 focus:border-brand-primary"
         />
     )}
     <p className="text-xs text-muted-foreground">This name appears on certificates and emails</p>
@@ -348,13 +371,14 @@ style={{
     <div className="grid gap-2">
     <label className="text-sm font-medium text-foreground">Admin Email</label>
     {isLoadingProfile ? (
-        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full bg-gray-200 dark:bg-gray-700" style={{ background: 'linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite' }} />
     ) : (
         <Input 
         value={adminEmail}
         onChange={(e) => setAdminEmail(e.target.value)}
         placeholder="admin@example.com"
         type="email"
+        className="border-2 border-gray-200 focus:border-brand-primary"
         />
     )}
     <p className="text-xs text-muted-foreground">Primary contact for this organization</p>
@@ -530,8 +554,8 @@ style={{
 </div>
 </section>
 
-{/* 6️⃣ TEAM & ACCESS */}
-<section data-section="team-access" className="bg-card border border-border rounded-lg p-6 space-y-6 opacity-60">
+{/* 6️⃣ TEAM & ACCESS SUMMARY */}
+<section data-section="team-access" className="bg-card border border-border rounded-lg p-6 space-y-6">
 <div className="flex items-center gap-3">
     <div className="p-2 bg-indigo-50 rounded-lg">
     <Users className="w-5 h-5 text-indigo-600" />
@@ -546,30 +570,43 @@ style={{
     <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
     <div>
         <p className="font-medium text-foreground">Your Role</p>
-        <p className="text-sm text-muted-foreground">Full administrative access</p>
+        <p className="text-sm text-muted-foreground">
+        {user?.role === "owner" ? "Full administrative access" : "Standard member access"}
+        </p>
     </div>
     <Badge>{user?.role ? formatRole(user.role) : "Loading..."}</Badge>
     </div>
 
     <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
     <div>
-        <p className="font-medium text-foreground">Team Members</p>
-        <p className="text-sm text-muted-foreground">Active users in your organization</p>
+        <p className="font-medium text-foreground">Active Team Members</p>
+        <p className="text-sm text-muted-foreground">Users in your organization</p>
     </div>
-    <span className="text-2xl font-bold text-foreground">{mockData.teamMembers}</span>
+    {isLoadingTeamMembers ? (
+        <Skeleton className="h-8 w-12" />
+    ) : (
+        <span className="text-2xl font-bold text-foreground">{totalMembers}</span>
+    )}
     </div>
 
-    <div className="text-center p-6 border-2 border-dashed border-border rounded-lg">
-    <Settings className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-    <p className="font-medium text-foreground mb-1">Team Management Coming Soon</p>
-    <p className="text-sm text-muted-foreground">
-        Invite team members, assign roles, and manage access control
-    </p>
+    {user?.role === "owner" && (
+    <div className="pt-2">
+        <Button 
+        variant="outline"
+        className="w-full sm:w-auto border-2 border-gray-200 hover:border-brand-primary"
+        onClick={() => router.push("/manage-team")}
+        >
+        <Settings className="w-4 h-4 mr-2" />
+        Manage Team
+        <ArrowRight className="w-4 h-4 ml-2" />
+        </Button>
     </div>
+    )}
 </div>
 </section>
 
-{/* 7️⃣ DANGER ZONE */}
+{/* 7️⃣ DANGER ZONE - Owner Only */}
+{user?.role === "owner" && (
 <section className="bg-red-50 border-2 border-red-200 rounded-lg p-6 space-y-4">
 <div className="flex items-center justify-between">
     <div className="flex items-center gap-3">
@@ -590,6 +627,7 @@ style={{
     </Button>
 </div>
 </section>
+)}
 
 {/* Change Password Modal */}
 <Dialog open={passwordModalOpen} onOpenChange={(open) => {

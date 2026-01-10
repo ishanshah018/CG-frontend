@@ -20,6 +20,7 @@ Map,
 } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { useAuth } from "@/lib/auth"
+import { useRoleAccess } from "@/lib/auth"
 
 import {
 Sidebar,
@@ -90,6 +91,7 @@ const pathname = usePathname()
 const { isMobile, setOpenMobile } = useSidebar()
 const [isProfileOpen, setIsProfileOpen] = React.useState(false)
 const { logout, user } = useAuth()
+const { permissions } = useRoleAccess()
 
 const handleMobileClick = () => {
   if (isMobile) {
@@ -97,9 +99,17 @@ const handleMobileClick = () => {
   }
 }
 
+// Filter menu items based on role permissions
+const filteredMenuItems = menuItems.filter((item) => {
+  if (item.title === "Billing" && !permissions.canAccessBilling) {
+    return false
+  }
+  return true
+})
+
 // Check if we're currently on a submenu page to determine initial state
 const getInitialOpenSubmenu = () => {
-  const activeMenuItem = menuItems.find((item) =>
+  const activeMenuItem = filteredMenuItems.find((item) =>
     item.items?.some((subItem) => pathname === subItem.url)
   )
   return activeMenuItem ? activeMenuItem.title : null
@@ -109,7 +119,7 @@ const [openSubmenu, setOpenSubmenu] = React.useState<string | null>(getInitialOp
 
 // Update open submenu when pathname changes
 React.useEffect(() => {
-  const activeMenuItem = menuItems.find((item) =>
+  const activeMenuItem = filteredMenuItems.find((item) =>
     item.items?.some((subItem) => pathname === subItem.url)
   )
   if (activeMenuItem) {
@@ -137,7 +147,7 @@ return (
     <SidebarGroup>
         <SidebarGroupContent>
         <SidebarMenu className="gap-3 md:gap-4">
-            {menuItems.map((item) => {
+            {filteredMenuItems.map((item) => {
             const isActive = pathname === item.url
             const hasSubmenu = item.items && item.items.length > 0
 

@@ -123,7 +123,7 @@ export default function DashboardPage() {
       label: "Certificates Issued This Month",
       value: isInsightsLoading ? <Skeleton className="w-16 h-8" /> : insights?.issued_this_month.toString() ?? "0",
       color: "text-green-600",
-      tooltip: "Certificates generated in the current billing month only. This does not represent your monthly limit usage."
+      tooltip: "This means the Certificates generated in the current month only. This does not represent your monthly limit usage."
     },
     {
       icon: TrendingUp,

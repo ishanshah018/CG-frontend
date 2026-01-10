@@ -26,7 +26,7 @@ export interface SignupCredentials {
 export interface User {
   id: string;
   email: string;
-  role: "owner" | "admin" | "staff";
+  role: "owner" | "admin" | "staff" | "member";
 }
 
 export interface Organization {

@@ -75,6 +75,12 @@ const checkAuth = async () => {
         return
         }
         
+        // Allow accept-invite route (user just registered through invite)
+        if (pathname.startsWith("/accept-invite")) {
+        // Don't logout, user just accepted invite
+        return
+        }
+        
         // If user navigates to any other route (not dashboard routes), logout
         const allowedRoutes = ["/dashboard", "/settings", "/templates", "/billing", "/certificates", "/generate", "/certificate-mapping", "/account-management", "/pricing", "/manage-team"]
         const isAllowedRoute = allowedRoutes.some(route => pathname.startsWith(route))

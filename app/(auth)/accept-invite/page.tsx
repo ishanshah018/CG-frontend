@@ -112,15 +112,15 @@ function AcceptInviteContent() {
     try {
       const response = await acceptInvitation({ token, password })
       
-      // Store authentication data
+      // Store authentication data - same as login flow
       storeAuthData(response.data)
       
       // Show success message
       toast.success("Welcome to the team! Redirecting to dashboard...")
       
-      // Redirect to dashboard
+      // Redirect to dashboard - use replace to prevent back navigation and add a small delay
       setTimeout(() => {
-        router.push("/dashboard")
+        window.location.href = "/dashboard"
       }, 1000)
     } catch (error) {
       setAcceptError(error instanceof Error ? error.message : "Failed to accept invitation")

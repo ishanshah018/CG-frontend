@@ -130,7 +130,7 @@ React.useEffect(() => {
 }, [pathname])
 
 return (
-<Sidebar className="border-r border-white/10 **:font-heading md:border-border [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" style={{ backgroundColor: '#101213' }}>
+<Sidebar className="relative bg-zinc-900 **:font-heading [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] after:absolute after:top-0 after:right-0 after:w-px after:h-full after:bg-zinc-900 after:z-50" style={{ backgroundColor: '#101213' }}>
     <SidebarHeader className="border-b border-white/10 p-3 md:p-4" style={{ backgroundColor: '#101213' }}>
     <div className="flex items-center gap-2">
         <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-lg bg-brand-primary">

@@ -25,7 +25,7 @@ export const API_CONFIG = {
       GENERATE: "http://localhost:4000/api/certificates/generate",
       ISSUED: "/api/certificates/issued",
       VIEW: "/api/certificates",
-      RESEND_EMAIL: "/api/certificates",
+      RESEND_EMAIL: "http://localhost:4000/api/certificates",
       DASHBOARD: {
         USAGE: "/api/certificates/dashboard/usage",
       },

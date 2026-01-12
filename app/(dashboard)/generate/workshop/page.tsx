@@ -104,7 +104,8 @@ export default function WorkshopPage() {
         sessionStorage.setItem('certificate_mapping', JSON.stringify(mappingResponse.data))
         
         // Extract workshop mapping
-        setMapping(mappingResponse.data?.workshop || mappingResponse.data)
+        const mappingData = mappingResponse.data as any
+        setMapping(mappingData?.workshop || mappingData)
         
         // Fetch attributes from sessionStorage or API
         const data = await fetchCertificateAttributes()

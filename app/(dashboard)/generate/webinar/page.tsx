@@ -104,7 +104,8 @@ export default function WebinarPage() {
         sessionStorage.setItem('certificate_mapping', JSON.stringify(mappingResponse.data))
         
         // Extract webinar mapping
-        setMapping(mappingResponse.data?.webinar || mappingResponse.data)
+        const mappingData = mappingResponse.data as any
+        setMapping(mappingData?.webinar || mappingData)
         
         // Fetch attributes from sessionStorage or API
         const data = await fetchCertificateAttributes()

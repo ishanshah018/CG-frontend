@@ -189,9 +189,10 @@ export default function CertificateMappingPage() {
         
         // API is source of truth: load into state first, then cache to sessionStorage
         if (mappingResponse.success && mappingResponse.data) {
-          setMappingDraft(mappingResponse.data)
-          mappingDraftRef.current = mappingResponse.data
-          sessionStorage.setItem('certificate_mapping', JSON.stringify(mappingResponse.data))
+          const mappingData = mappingResponse.data as MappingData
+          setMappingDraft(mappingData)
+          mappingDraftRef.current = mappingData
+          sessionStorage.setItem('certificate_mapping', JSON.stringify(mappingData))
         }
       } catch {
         // Silently ignore any errors

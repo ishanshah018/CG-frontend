@@ -8,7 +8,6 @@ import { FileCheck, TrendingUp, Calendar, CheckCircle2, AlertCircle, Info, Lock,
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { useUsage } from "@/app/(dashboard)/layout"
 import { Area, AreaChart, ResponsiveContainer, Tooltip as ChartTooltip, XAxis, YAxis, CartesianGrid } from "recharts"
 
 // Skeleton loader component
@@ -18,7 +17,6 @@ const Skeleton = ({ className }: { className?: string }) => (
 
 export default function DashboardPage() {
   const { plan } = useAuth()
-  const { usage } = useUsage()
   const router = useRouter()
   
   // Client-side mount state to avoid hydration issues
@@ -45,13 +43,13 @@ export default function DashboardPage() {
     checkBaseTemplate()
     fetchInsights()
     fetchGraph(selectedYear)
-  }, [])
+  }, [selectedYear])
 
   const checkBaseTemplate = async () => {
     try {
       const response = await getBaseCertificateTemplate()
       setHasTemplate(response.success && response.data !== null)
-    } catch (error) {
+    } catch {
       setHasTemplate(false)
     } finally {
       setIsTemplateLoading(false)
@@ -578,9 +576,6 @@ export default function DashboardPage() {
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-foreground mb-0.5 flex items-center gap-2">
                   Add team members
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-muted text-muted-foreground">
-                    Coming Soon
-                  </span>
                 </h3>
                 <p className="text-sm text-muted-foreground line-clamp-1">Invite teammates and manage access permissions</p>
               </div>

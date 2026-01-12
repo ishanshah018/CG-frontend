@@ -1,123 +1,147 @@
 @import "tailwindcss";
 
 /* -----------------------------------
-   Custom variant
+  Custom variant
 ----------------------------------- */
 @custom-variant dark (&:is(.dark *));
 
 /* -----------------------------------
-   DESIGN TOKENS
+  DESIGN TOKENS
 ----------------------------------- */
 @theme {
-  /* Brand */
-  --color-brand-primary: #2596be;
-  --color-brand-primary-hover: #1f7fa1;
+/* Brand */
+--color-brand-primary: #2596be;
+--color-brand-primary-hover: #1f7fa1;
 
-  /* Surfaces */
-  --color-surface-sidebar: #1e293b;
-  --color-surface-canvas: #f8fafc;
-  --color-surface-card: #ffffff;
+/* Surfaces */
+--color-surface-sidebar: #1e293b;
+--color-surface-canvas: #f8fafc;
+--color-surface-card: #ffffff;
 
-  /* Text */
-  --color-text-primary: #0f172a;
-  --color-text-secondary: #475569;
-  --color-text-muted: #94a3b8;
+/* Text */
+--color-text-primary: #0f172a;
+--color-text-secondary: #475569;
+--color-text-muted: #94a3b8;
 
-  /* Border */
-  --color-border: #e2e8f0;
+/* Border */
+--color-border: #e2e8f0;
 
-  /* Fonts */
-  --font-family-body: var(--font-body);
-  --font-family-heading: var(--font-heading);
-  --font-family-sidebar: var(--font-sidebar);
+/* Fonts */
+--font-family-body: var(--font-body);
+--font-family-heading: var(--font-heading);
+--font-family-sidebar: var(--font-sidebar);
 }
 
 /* -----------------------------------
-   SHADCN + TAILWIND v4 BRIDGE
+  SHADCN + TAILWIND v4 BRIDGE
 ----------------------------------- */
 @theme inline {
-  --background: var(--color-surface-canvas);
-  --foreground: var(--color-text-primary);
+--background: var(--color-surface-canvas);
+--foreground: var(--color-text-primary);
 
-  --card: var(--color-surface-card);
-  --card-foreground: var(--color-text-primary);
+--card: var(--color-surface-card);
+--card-foreground: var(--color-text-primary);
 
-  --popover: var(--color-surface-card);
-  --popover-foreground: var(--color-text-primary);
+--popover: var(--color-surface-card);
+--popover-foreground: var(--color-text-primary);
 
-  --primary: var(--color-brand-primary);
-  --primary-foreground: #ffffff;
+--primary: var(--color-brand-primary);
+--primary-foreground: #ffffff;
 
-  --muted: var(--color-surface-canvas);
-  --muted-foreground: var(--color-text-muted);
+--muted: var(--color-surface-canvas);
+--muted-foreground: var(--color-text-muted);
 
-  --accent: var(--color-brand-primary-hover);
-  --accent-foreground: #ffffff;
+--accent: var(--color-brand-primary-hover);
+--accent-foreground: #ffffff;
 
-  --border: var(--color-border);
-  --input: var(--color-border);
-  --ring: var(--color-brand-primary);
+--border: var(--color-border);
+--input: var(--color-border);
+--ring: var(--color-brand-primary);
 
-  /* Sidebar (shadcn reads THESE) */
-  --sidebar: var(--color-surface-sidebar);
-  --sidebar-foreground: #ffffff;
-  --sidebar-primary: var(--color-brand-primary);
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: var(--color-brand-primary-hover);
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-ring: var(--color-brand-primary);
+/* Sidebar (shadcn reads THESE) */
+--sidebar: var(--color-surface-sidebar);
+--sidebar-foreground: #ffffff;
+--sidebar-primary: var(--color-brand-primary);
+--sidebar-primary-foreground: #ffffff;
+--sidebar-accent: var(--color-brand-primary-hover);
+--sidebar-accent-foreground: #ffffff;
+--sidebar-border: rgba(255, 255, 255, 0.08);
+--sidebar-ring: var(--color-brand-primary);
 }
 
 /* -----------------------------------
-   BASE STYLES (NO @apply TOKENS)
+  BASE STYLES (NO @apply TOKENS)
 ----------------------------------- */
 @layer base {
-  body {
-    background: var(--background);
-    color: var(--foreground);
-  }
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
 
-  h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-heading), sans-serif;
-  }
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading), sans-serif;
+}
 
-  .header-bar,
-  .header-bar * {
-    font-family: var(--font-heading), sans-serif !important;
-  }
+.header-bar,
+.header-bar * {
+  font-family: var(--font-heading), sans-serif !important;
+}
 
-  [data-sidebar] * {
-    font-family: var(--font-sidebar), sans-serif !important;
-  }
+[data-sidebar] * {
+  font-family: var(--font-sidebar), sans-serif !important;
+}
 
-  * {
-    border-color: var(--border);
-  }
+* {
+  border-color: var(--border);
+}
 
-  button {
-    cursor: pointer;
-  }
+button {
+  cursor: pointer;
+}
 
-  [role="button"] {
-    cursor: pointer;
-  }
+[role="button"] {
+  cursor: pointer;
+}
+
+/* Custom Scrollbar Styles */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #1e293b transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #1e293b;
+  border-radius: 10px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: #0f172a;
+}
 }
 
 /* -----------------------------------
-   ANIMATIONS
+  ANIMATIONS
 ----------------------------------- */
 @keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
+0% {
+  background-position: -200% 0;
+}
+100% {
+  background-position: 200% 0;
+}
 }
 
 @layer utilities {
-  .animate-shimmer {
-    animation: shimmer 2s ease-in-out infinite;
-  }
+.animate-shimmer {
+  animation: shimmer 2s ease-in-out infinite;
+}
 }

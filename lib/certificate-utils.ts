@@ -196,5 +196,5 @@ export function canRegenerateCertificate(status: CertificateStatus | string): bo
 }
 
 export function canResendEmail(status: CertificateStatus | string, is_emailed: boolean): boolean {
-  return status === "generated" && !is_emailed;
+  return status === "generated";
 }

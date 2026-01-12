@@ -104,7 +104,8 @@ export default function CoursePage() {
         sessionStorage.setItem('certificate_mapping', JSON.stringify(mappingResponse.data))
         
         // Extract course mapping
-        setMapping(mappingResponse.data?.course || mappingResponse.data)
+        const mappingData = mappingResponse.data as any
+        setMapping(mappingData?.course || mappingData)
         
         // Fetch attributes from sessionStorage or API
         const data = await fetchCertificateAttributes()

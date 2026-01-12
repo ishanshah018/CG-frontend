@@ -208,9 +208,13 @@ export function GenerateCertificate({
     }))
   }
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (sendEmail: boolean = false) => {
     try {
-      setIsGenerating(true)
+      if (sendEmail) {
+        setIsGeneratingAndSending(true)
+      } else {
+        setIsGenerating(true)
+      }
 
       // Extract student name from form data
       const studentNameKey = attributes.find(attr => attr.toLowerCase().includes('student_name') || attr.toLowerCase().includes('name'))
@@ -226,13 +230,18 @@ export function GenerateCertificate({
       })
 
       // Build the payload dynamically
-      const payload = {
+      const payload: any = {
         certificateType,
         student: {
           name: studentName,
           email: studentEmail || "",
         },
         attributes: certificateAttributes,
+      }
+
+      // Add send_email flag only if sendEmail is true
+      if (sendEmail) {
+        payload.send_email = true
       }
 
       // Call the API
@@ -253,56 +262,11 @@ export function GenerateCertificate({
       // Show error toast with API error message
       toast.error(error instanceof Error ? error.message : 'Failed to generate certificate')
     } finally {
-      setIsGenerating(false)
-    }
-  }
-
-  const handleGenerateAndSend = async () => {
-    try {
-      setIsGeneratingAndSending(true)
-
-      // Extract student name from form data
-      const studentNameKey = attributes.find(attr => attr.toLowerCase().includes('student_name') || attr.toLowerCase().includes('name'))
-      const studentName = studentNameKey ? formData[studentNameKey] : ""
-
-      // Build attributes object dynamically from form data
-      const certificateAttributes: Record<string, string> = {}
-      attributes.forEach((attr) => {
-        // Skip student_name as it goes in the student object
-        if (!attr.toLowerCase().includes('student_name') && attr.toLowerCase() !== 'name') {
-          certificateAttributes[attr] = formData[attr] || ""
-        }
-      })
-
-      // Build the payload dynamically
-      const payload = {
-        certificateType,
-        student: {
-          name: studentName,
-          email: studentEmail,
-        },
-        attributes: certificateAttributes,
+      if (sendEmail) {
+        setIsGeneratingAndSending(false)
+      } else {
+        setIsGenerating(false)
       }
-
-      // Call the API
-      const response = await generateCertificate(payload)
-
-      if (response.success) {
-        // Show success toast with API response message
-        toast.success(response.message || 'Certificate generated and sent successfully')
-
-        // Reset form
-        setFormData(initialFormData)
-        setStudentEmail("")
-        setEmailValid(false)
-      }
-    } catch (error) {
-      console.error("Failed to generate and send certificate:", error)
-      
-      // Show error toast with API error message
-      toast.error(error instanceof Error ? error.message : 'Failed to generate and send certificate')
-    } finally {
-      setIsGeneratingAndSending(false)
     }
   }
 
@@ -468,7 +432,7 @@ export function GenerateCertificate({
             >
               <div className="flex-1">
                 <Button
-                  onClick={handleGenerate}
+                  onClick={() => handleGenerate(false)}
                   disabled={!canGenerate || isGenerating}
                   className="w-full h-10 font-medium text-white whitespace-nowrap"
                   size="lg"
@@ -504,7 +468,7 @@ export function GenerateCertificate({
             >
               <div className="flex-1">
                 <Button
-                  onClick={isFreePlan ? () => window.location.href = '/pricing' : handleGenerateAndSend}
+                  onClick={isFreePlan ? () => window.location.href = '/pricing' : () => handleGenerate(true)}
                   disabled={!canGenerateAndSend && !isFreePlan}
                   variant="outline"
                   className="w-full h-10 font-medium whitespace-nowrap flex items-center justify-center gap-2"

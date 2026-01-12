@@ -355,7 +355,7 @@ throw error;
  * Save certificate mapping
  * Sends certificate mapping configuration to the server
  */
-export async function saveCertificateMapping(mappings: any): Promise<{ success: boolean; message: string }> {
+export async function saveCertificateMapping(mappings: Record<string, unknown>): Promise<{ success: boolean; message: string }> {
   const token = sessionStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
 
   if (!token) {
@@ -557,7 +557,7 @@ export async function resendCertificateEmail(
   }
 
   const response = await fetch(
-    `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CERTIFICATES.RESEND_EMAIL}/${certificateId}/resend-email`,
+    `${API_CONFIG.ENDPOINTS.CERTIFICATES.RESEND_EMAIL}/${certificateId}/resend-email`,
     {
       method: "POST",
       headers: {
@@ -579,7 +579,7 @@ export async function resendCertificateEmail(
  * Get certificate mapping
  * Fetches certificate mapping configuration from server
  */
-export async function getCertificateMapping(): Promise<{ success: boolean; message?: string; data?: any }> {
+export async function getCertificateMapping(): Promise<{ success: boolean; message?: string; data?: unknown }> {
 const token = sessionStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
 
 if (!token) {
@@ -619,12 +619,13 @@ export interface GenerateCertificateRequest {
     email: string;
   };
   attributes: Record<string, string>;
+  send_email?: boolean;
 }
 
 export interface GenerateCertificateResponse {
   success: boolean;
   message: string;
-  data?: any;
+  data?: unknown;
 }
 
 /**

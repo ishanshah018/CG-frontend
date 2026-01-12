@@ -170,7 +170,7 @@ export function CertificateFilters({ onFilterChange }: CertificateFiltersProps) 
             )
           }
         >
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-40" suppressHydrationWarning>
             <SelectValue placeholder="Date" />
           </SelectTrigger>
           <SelectContent>
@@ -190,7 +190,7 @@ export function CertificateFilters({ onFilterChange }: CertificateFiltersProps) 
             updateFilter("certificateType", value as FilterState["certificateType"])
           }
         >
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-40" suppressHydrationWarning>
             <SelectValue placeholder="Type" />
           </SelectTrigger>
           <SelectContent>
@@ -208,7 +208,7 @@ export function CertificateFilters({ onFilterChange }: CertificateFiltersProps) 
             updateFilter("status", value as FilterState["status"])
           }
         >
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-40" suppressHydrationWarning>
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -227,7 +227,7 @@ export function CertificateFilters({ onFilterChange }: CertificateFiltersProps) 
             updateFilter("emailStatus", value as FilterState["emailStatus"])
           }
         >
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-40" suppressHydrationWarning>
             <SelectValue placeholder="Email" />
           </SelectTrigger>
           <SelectContent>

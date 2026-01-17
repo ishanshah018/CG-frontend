@@ -149,6 +149,7 @@ ctaVariant: "outline" as const,
 ]
 
 return (
+<div className="min-h-screen bg-white">
 <div 
 className="max-w-7xl mx-auto p-6 py-12 space-y-12 transition-all duration-500 ease-out"
 style={{
@@ -368,6 +369,7 @@ transform: isVisible ? 'translateY(0)' : 'translateY(16px)'
 <p className="text-sm text-muted-foreground max-w-2xl mx-auto">
     All plans include secure storage, certificate verification, and future feature updates.
 </p>
+</div>
 </div>
 </div>
 )

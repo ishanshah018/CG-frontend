@@ -12,6 +12,7 @@ export const API_CONFIG = {
       LOGOUT: "/api/auth/logout",
       REGISTER: "/api/auth/register",
       ME: "/api/auth/me",
+      GOOGLE: "/api/auth/google",
     },
     CERTIFICATES: {
       TEMPLATES: {

@@ -86,6 +86,18 @@ export interface MeResponse {
   };
 }
 
+export interface GoogleAuthResponse {
+  success: boolean;
+  message: string;
+  data: {
+    token: string;
+    user: User;
+    organization: Organization;
+    plan: Plan;
+    is_new_user: boolean;
+  };
+}
+
 /**
  * Login API handler
  * Authenticates user and returns access token with user data
@@ -294,4 +306,29 @@ export function logout(): void {
   if (typeof window !== "undefined") {
     window.location.href = "/login";
   }
+}
+
+/**
+ * Google OAuth authentication
+ * Sends Google authorization code to backend for verification
+ */
+export async function googleAuthLogin(code: string): Promise<GoogleAuthResponse> {
+  const response = await fetch(
+    `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.AUTH.GOOGLE}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ code }),
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Google authentication failed");
+  }
+
+  return data;
 }

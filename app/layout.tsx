@@ -1,7 +1,6 @@
 import "./globals.css"
 import { Analytics } from "@vercel/analytics/react"
 import { SpeedInsights } from "@vercel/speed-insights/next"
-import Providers from "@/components/providers/Providers"
 
 import { Alegreya_Sans, Inter, Source_Sans_3 } from "next/font/google"
 import { Toaster } from "sonner"
@@ -32,12 +31,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.className} ${alegreyaSans.variable} ${sourceSansPro.variable} ${certificateFonts} antialiased`}>
-        <Providers>
-          {children}
-          <Toaster position="top-center" />
-          <Analytics />
-          <SpeedInsights />
-        </Providers>
+        {children}
+        <Toaster position="top-center" />
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   )

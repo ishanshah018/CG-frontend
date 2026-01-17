@@ -4,10 +4,16 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import React from "react"
+import dynamic from "next/dynamic"
 import { signupUser } from "@/lib/api/auth"
 import Loader from "@/components/loader"
 import { toast } from "sonner"
-import GoogleAuthButton from "@/components/auth/GoogleAuthButton"
+
+// Dynamically import GoogleAuthButton with no SSR
+const GoogleAuthButton = dynamic(
+  () => import("@/components/auth/GoogleAuthButton"),
+  { ssr: false }
+)
 
 export default function SignupPage() {
   const router = useRouter()

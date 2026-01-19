@@ -296,10 +296,6 @@ return (
             side="top"
             className="w-48 md:w-56 bg-surface-sidebar border-2 border-white/20 shadow-2xl text-white"
             >
-            <DropdownMenuItem className="cursor-pointer hover:bg-brand-primary-hover focus:bg-brand-primary-hover text-white text-sm">
-                <User className="mr-2 h-3 w-3 md:h-4 md:w-4" />
-                <span>Account</span>
-            </DropdownMenuItem>
             <DropdownMenuItem className="cursor-pointer text-red-400 hover:bg-red-900/20 hover:text-red-300 focus:bg-red-900/20 focus:text-red-300 text-sm" onClick={logout}>
                 <LogOut className="mr-2 h-3 w-3 md:h-4 md:w-4" />
                 <span>Logout</span>

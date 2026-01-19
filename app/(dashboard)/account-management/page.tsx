@@ -32,16 +32,18 @@ import { getDashboardInsights, type DashboardInsightsData } from "@/lib/api/cert
 import { getTeamMembers } from "@/lib/api/team"
 import { API_CONFIG, STORAGE_KEYS } from "@/lib/api/config"
 
-// Toggle component
-const Toggle = ({ checked, onChange }: { checked: boolean; onChange: (val: boolean) => void }) => (
+// Toggle component with disabled state support
+const Toggle = ({ checked, onChange, disabled = false }: { checked: boolean; onChange: (val: boolean) => void; disabled?: boolean }) => (
 <button
 type="button"
 role="switch"
 aria-checked={checked}
-onClick={() => onChange(!checked)}
+onClick={() => !disabled && onChange(!checked)}
+disabled={disabled}
 className={`
-relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-${checked ? "bg-brand-primary" : "bg-gray-200"}
+  relative inline-flex h-6 w-11 items-center rounded-full transition-colors
+  ${checked ? "bg-brand-primary" : "bg-gray-200"}
+  ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
 `}
 >
 <span
@@ -362,10 +364,11 @@ style={{
         value={orgName}
         onChange={(e) => setOrgName(e.target.value)}
         placeholder="Your organization name"
-        className="border-2 border-gray-200 focus:border-brand-primary"
+        disabled={user?.role === "member"}
+        className={`border-2 border-gray-200 focus:border-brand-primary ${user?.role === "member" ? "bg-muted cursor-not-allowed" : ""}`}
         />
     )}
-    <p className="text-xs text-muted-foreground">This name appears on certificates and emails</p>
+    <p className="text-xs text-muted-foreground">{user?.role === "member" ? "Only organization owners can edit this field" : "This name appears on certificates and emails"}</p>
     </div>
 
     <div className="grid gap-2">
@@ -378,12 +381,14 @@ style={{
         onChange={(e) => setAdminEmail(e.target.value)}
         placeholder="admin@example.com"
         type="email"
-        className="border-2 border-gray-200 focus:border-brand-primary"
+        disabled={user?.role === "member"}
+        className={`border-2 border-gray-200 focus:border-brand-primary ${user?.role === "member" ? "bg-muted cursor-not-allowed" : ""}`}
         />
     )}
-    <p className="text-xs text-muted-foreground">Primary contact for this organization</p>
+    <p className="text-xs text-muted-foreground">{user?.role === "member" ? "Only organization owners can edit this field" : "Primary contact for this organization"}</p>
     </div>
 
+    {user?.role !== "member" && (
     <div className="pt-2">
     <Button 
         disabled={isLoadingProfile || isSavingProfile} 
@@ -400,6 +405,7 @@ style={{
         )}
     </Button>
     </div>
+    )}
 </div>
 </section>
 
@@ -449,6 +455,11 @@ style={{
 </div>
 
 <div className="space-y-4">
+    {user?.role === "member" && (
+      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+        <p className="text-sm text-blue-700">Members can view notification settings but cannot modify them. Contact your organization owner to make changes.</p>
+      </div>
+    )}
     <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
     <div className="space-y-1">
         <div className="flex items-center gap-2">
@@ -457,7 +468,7 @@ style={{
         </div>
         <p className="text-sm text-muted-foreground">Receive confirmation when a certificate is created</p>
     </div>
-    <Toggle checked={notifCertGenerated} onChange={setNotifCertGenerated} />
+    <Toggle checked={notifCertGenerated} onChange={setNotifCertGenerated} disabled={user?.role === "member"} />
     </div>
 
     <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
@@ -468,7 +479,7 @@ style={{
         </div>
         <p className="text-sm text-muted-foreground">Get notified when certificate generation fails</p>
     </div>
-    <Toggle checked={notifCertFailed} onChange={setNotifCertFailed} />
+    <Toggle checked={notifCertFailed} onChange={setNotifCertFailed} disabled={user?.role === "member"} />
     </div>
 
     <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
@@ -479,7 +490,7 @@ style={{
         </div>
         <p className="text-sm text-muted-foreground">Alert when approaching monthly certificate limit</p>
     </div>
-    <Toggle checked={notifUsageLimit} onChange={setNotifUsageLimit} />
+    <Toggle checked={notifUsageLimit} onChange={setNotifUsageLimit} disabled={user?.role === "member"} />
     </div>
 </div>
 </section>
@@ -548,9 +559,11 @@ style={{
 
     <Separator />
 
+    {user?.role !== "member" && (
     <Button variant="outline" className="w-full sm:w-auto border-2 border-gray-200 hover:border-brand-primary">
       View Billing Details →
     </Button>
+    )}
 </div>
 </section>
 

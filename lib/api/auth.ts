@@ -27,6 +27,7 @@ export interface User {
   id: string;
   email: string;
   role: "owner" | "admin" | "staff" | "member";
+  avatar_url?: string;
 }
 
 export interface Organization {

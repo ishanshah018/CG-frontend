@@ -44,6 +44,48 @@ DropdownMenuItem,
 DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
+// User Avatar Component with fallback
+function UserAvatar({ user }: { user: any }) {
+  const [imageError, setImageError] = React.useState(false)
+  const [imageLoading, setImageLoading] = React.useState(true)
+  
+  const getInitials = () => {
+    if (!user?.email) return 'U'
+    const name = user.email.split('@')[0]
+    return name.charAt(0).toUpperCase()
+  }
+
+  // If no avatar_url or image failed to load, show initials
+  if (!user?.avatar_url || imageError) {
+    return (
+      <div className="flex h-7 w-7 md:h-8 md:w-8 items-center justify-center rounded-full bg-brand-primary text-white font-semibold text-xs md:text-sm shrink-0">
+        {getInitials()}
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative flex h-7 w-7 md:h-8 md:w-8 items-center justify-center rounded-full bg-brand-primary shrink-0 overflow-hidden">
+      {imageLoading && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="text-white font-semibold text-xs md:text-sm">{getInitials()}</div>
+        </div>
+      )}
+      <img
+        src={user.avatar_url}
+        alt={user.email || 'User avatar'}
+        className={`h-full w-full object-cover transition-opacity duration-200 ${imageLoading ? 'opacity-0' : 'opacity-100'}`}
+        onLoad={() => setImageLoading(false)}
+        onError={() => {
+          setImageError(true)
+          setImageLoading(false)
+        }}
+        loading="lazy"
+      />
+    </div>
+  )
+}
+
 const menuItems = [
 {
 title: "Dashboard",
@@ -234,9 +276,7 @@ return (
               className="text-white/80 hover:scale-[1.02] transition-transform"
               suppressHydrationWarning
             >
-                <div className="flex h-7 w-7 md:h-8 md:w-8 items-center justify-center rounded-full bg-brand-primary">
-                <User className="h-3 w-3 md:h-4 md:w-4 text-white" />
-                </div>
+                <UserAvatar user={user} />
                 <div className="flex flex-col items-start">
                 <span className="text-xs md:text-sm font-medium text-white">
                   {user?.email?.split('@')[0] || 'User'}

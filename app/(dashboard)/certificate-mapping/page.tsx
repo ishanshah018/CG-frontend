@@ -1800,12 +1800,12 @@ function CustomMappingView({
               <button
                 onClick={handleSaveMapping}
                 disabled={!hasUnsavedChanges || isSaving}
-                className={`px-6 py-2.5 rounded-lg font-medium text-sm transition-all shadow-lg ${
+                className={`px-6 py-2.5 rounded-lg font-medium text-sm transition-all shadow-lg border-2 ${
                   saveSuccess && !hasUnsavedChanges
-                    ? "bg-green-600 text-white cursor-default"
+                    ? "bg-green-600 text-white cursor-default border-green-600"
                     : hasUnsavedChanges && !isSaving
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
-                    : "bg-muted text-muted-foreground cursor-not-allowed opacity-60"
+                    ? "bg-white text-black border-gray-400 hover:border-brand-primary cursor-pointer"
+                    : "bg-muted text-muted-foreground cursor-not-allowed opacity-60 border-muted"
                 }`}
               >
                 {isSaving ? (

@@ -560,7 +560,11 @@ style={{
     <Separator />
 
     {user?.role !== "member" && (
-    <Button variant="outline" className="w-full sm:w-auto border-2 border-gray-200 hover:border-brand-primary">
+    <Button 
+      variant="outline" 
+      className="w-full sm:w-auto border-2 border-gray-200 hover:border-brand-primary"
+      onClick={() => router.push('/billing')}
+    >
       View Billing Details →
     </Button>
     )}

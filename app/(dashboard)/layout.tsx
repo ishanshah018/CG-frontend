@@ -1,6 +1,6 @@
 "use client"
 
-import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
 import { Breadcrumb } from "@/components/breadcrumb"
 import { AuthProvider, useAuth } from "@/lib/auth"
@@ -85,7 +85,6 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
                 <header className="shrink-0 flex h-14 items-center justify-between px-6 bg-white border-b relative">
                   {/* Left */}
                   <div className="flex items-center gap-3">
-                    <SidebarTrigger />
                     <div className="hidden md:block">
                       <Breadcrumb />
                     </div>

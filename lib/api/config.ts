@@ -4,7 +4,7 @@
  */
 
 export const API_CONFIG = {
-  BASE_URL: "https://cg-backend-myn3.onrender.com",
+  BASE_URL: "https://api.ishans.qzz.io",
   ENDPOINTS: {
     AUTH: {
       LOGIN: "/api/auth/login",

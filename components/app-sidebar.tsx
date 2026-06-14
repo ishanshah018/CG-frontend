@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
 import * as React from "react"
@@ -169,7 +170,7 @@ React.useEffect(() => {
   } else {
     setOpenSubmenu(null)
   }
-}, [pathname])
+}, [filteredMenuItems, pathname])
 
 return (
 <Sidebar className="relative bg-zinc-900 **:font-heading [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] after:absolute after:top-0 after:right-0 after:w-px after:h-full after:bg-zinc-900 after:z-50" style={{ backgroundColor: '#101213' }}>

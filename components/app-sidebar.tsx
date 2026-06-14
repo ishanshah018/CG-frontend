@@ -142,35 +142,37 @@ const handleMobileClick = () => {
   }
 }
 
-// Filter menu items based on role permissions
-const filteredMenuItems = menuItems.filter((item) => {
-  if (item.title === "Billing" && !permissions.canAccessBilling) {
-    return false
+  // Filter menu items based on role permissions
+  const filteredMenuItems = React.useMemo(() => {
+    return menuItems.filter((item) => {
+      if (item.title === "Billing" && !permissions?.canAccessBilling) {
+        return false
+      }
+      return true
+    })
+  }, [permissions?.canAccessBilling])
+
+  // Check if we're currently on a submenu page to determine initial state
+  const getInitialOpenSubmenu = () => {
+    const activeMenuItem = filteredMenuItems.find((item) =>
+      item.items?.some((subItem) => pathname === subItem.url)
+    )
+    return activeMenuItem ? activeMenuItem.title : null
   }
-  return true
-})
 
-// Check if we're currently on a submenu page to determine initial state
-const getInitialOpenSubmenu = () => {
-  const activeMenuItem = filteredMenuItems.find((item) =>
-    item.items?.some((subItem) => pathname === subItem.url)
-  )
-  return activeMenuItem ? activeMenuItem.title : null
-}
+  const [openSubmenu, setOpenSubmenu] = React.useState<string | null>(getInitialOpenSubmenu)
 
-const [openSubmenu, setOpenSubmenu] = React.useState<string | null>(getInitialOpenSubmenu)
-
-// Update open submenu when pathname changes
-React.useEffect(() => {
-  const activeMenuItem = filteredMenuItems.find((item) =>
-    item.items?.some((subItem) => pathname === subItem.url)
-  )
-  if (activeMenuItem) {
-    setOpenSubmenu(activeMenuItem.title)
-  } else {
-    setOpenSubmenu(null)
-  }
-}, [filteredMenuItems, pathname])
+  // Update open submenu when pathname changes
+  React.useEffect(() => {
+    const activeMenuItem = filteredMenuItems.find((item) =>
+      item.items?.some((subItem) => pathname === subItem.url)
+    )
+    if (activeMenuItem) {
+      setOpenSubmenu(activeMenuItem.title)
+    } else {
+      setOpenSubmenu(null)
+    }
+  }, [filteredMenuItems, pathname])
 
 return (
 <Sidebar className="relative bg-zinc-900 **:font-heading [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] after:absolute after:top-0 after:right-0 after:w-px after:h-full after:bg-zinc-900 after:z-50" style={{ backgroundColor: '#101213' }}>
